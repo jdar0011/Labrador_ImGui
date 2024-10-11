@@ -7,6 +7,7 @@
 #include <complex>
 #include <array>
 #include <float.h>
+#include "TVD.hpp"
 class OSCControl;
 
 class OscData
@@ -234,7 +235,37 @@ public:
 			return DBL_MAX; // if there is no data, we want anything that compares with it to have a lower min
 		}
 	}
-	double GetDominantFrequency()
+	double GetVpp() // specific function for finding Vpp that attempts to remove outliers
+	{
+		if (!paused)
+		{
+			double sample_rate_hz = CalculateSampleRate();
+			double vpp_time_window = GetPeriod() * 3;
+			std::vector<double>* vpp_data_ptr = librador_get_analog_data(
+			    channel, vpp_time_window, sample_rate_hz, delay_s, filter_mode);
+			if (vpp_data_ptr)
+			{
+				vpp_data = *vpp_data_ptr;
+				std::reverse(vpp_data.begin(), vpp_data.end());
+			}
+			else
+			{
+				vpp_data = {};
+			}
+		}
+		if (vpp_data.size() == 0)
+		{
+			return 0;
+		}
+		// apply total variation denoising (TVD) to denoise the signal
+		double lambda = 0.1;
+		std::vector<double> denoised_signal = tv_denoise(vpp_data, lambda);
+		double max = *std::max_element(denoised_signal.begin(), denoised_signal.end());
+		double min = *std::min_element(denoised_signal.begin(), denoised_signal.end());
+		return max - min;
+
+	}
+	double GetDominantFrequency() // using fft (don't use this as it is not supported)
 	{
 		std::vector<double> ft_mag;
 		ApplyFFT();
@@ -377,10 +408,11 @@ private:
 	std::vector<double> time = {};
 	std::vector<double> data = {};
 	std::vector<double> extended_data = {};
+	std::vector<double> vpp_data = {}; // i create this vector to just contain 3 periods
 	int channel;
 	int filter_mode = 0;
 	double delay_s = 0;
-	double trigger_timeout = 0.02; // seconds
+	double trigger_timeout = 0.2; // seconds
 	double trigger_time = trigger_timeout; // seconds
 	int max_plot_samples = 2048;
 	double max_sample_rate = 375000;
@@ -397,7 +429,7 @@ private:
 	fftw_complex* data_ft_out_filtered;
 	double* data_ft_in_filtered;
 	fftw_plan reverse_plan;
-	double ft_sample_rate = max_sample_rate/12; // sets max frequency detection (must be a factor of the max sample rate)
+	double ft_sample_rate = max_sample_rate; // sets max frequency detection (must be a factor of the max sample rate)
 	double ft_time_window = ft_size / ft_sample_rate; // sets frequency detection resolution (and min frequency detection)
 	double raw_time_step = 1 / ft_sample_rate;
 	// mini buffer (used for determining gain of oscilloscope)

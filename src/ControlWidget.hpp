@@ -61,10 +61,8 @@ public:
 		ImGui::AlignTextToFramePadding();
 		bool treeopen = ImGui::TreeNodeEx(label.c_str(),
 		    ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_DefaultOpen);
-		ImGui::SameLine(ImGui::GetContentRegionAvail().x - 20);
 		
 		// Help button
-		if (ImGui::Button("  ?  "))
 		{
 			show_help = true;
 		}

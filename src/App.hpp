@@ -4,7 +4,6 @@
 #include "implot_internal.h"
 #include <iostream>
 #include <string>
-#include "librador.h"
 #include "PSUControl.hpp"
 #include "OSCControl.hpp"
 #include "SGControl.hpp"
@@ -126,11 +125,6 @@ class App : public AppBase<App>
 			if (ImGui::BeginMenuBar())
 			{
 				// Demo windows for styling/docs [TODO: REMOVE in finished product]
-				//if (ImGui::BeginMenu("Menu"))
-				//{
-				//	ImGui::MenuItem("Show Demos", "", &showDemoWindows);
-				//	ImGui::EndMenu();
-				//}
 
 				// Device
 				if (ImGui::BeginMenu("Device"))
