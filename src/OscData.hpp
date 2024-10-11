@@ -235,54 +235,40 @@ public:
 			return DBL_MAX; // if there is no data, we want anything that compares with it to have a lower min
 		}
 	}
-	double GetVpp() // specific function for finding Vpp that attempts to remove outliers
+	void SetPeriodicData()
 	{
 		if (!paused)
 		{
+			int num_periods = 10;
 			double sample_rate_hz = CalculateSampleRate();
-			double vpp_time_window = GetPeriod() * 3;
-			std::vector<double>* vpp_data_ptr = librador_get_analog_data(
-			    channel, vpp_time_window, sample_rate_hz, delay_s, filter_mode);
-			if (vpp_data_ptr)
+			double periodic_time_window = GetPeriod() * num_periods;
+			std::vector<double>* periodic_data_ptr = librador_get_analog_data(
+				channel, periodic_time_window, sample_rate_hz, delay_s, filter_mode);
+			if (periodic_data_ptr)
 			{
-				vpp_data = *vpp_data_ptr;
-				std::reverse(vpp_data.begin(), vpp_data.end());
+				periodic_data = *periodic_data_ptr;
+				std::reverse(periodic_data.begin(), periodic_data.end());
 			}
 			else
 			{
-				vpp_data = {};
+				periodic_data = {};
 			}
 		}
-		if (vpp_data.size() == 0)
+
+	}
+	double GetVpp() // specific function for finding Vpp that attempts to remove outliers
+	{
+		if (periodic_data.size() == 0)
 		{
 			return 0;
 		}
 		// apply total variation denoising (TVD) to denoise the signal
 		double lambda = 0.1;
-		std::vector<double> denoised_signal = tv_denoise(vpp_data, lambda);
+		std::vector<double> denoised_signal = tv_denoise(periodic_data, lambda);
 		double max = *std::max_element(denoised_signal.begin(), denoised_signal.end());
 		double min = *std::min_element(denoised_signal.begin(), denoised_signal.end());
 		return max - min;
 
-	}
-	double GetDominantFrequency() // using fft (don't use this as it is not supported)
-	{
-		std::vector<double> ft_mag;
-		ApplyFFT();
-		for (int i = 0; i < ft_size; i++)
-		{
-			ft_mag.push_back(std::abs(data_ft_out_normalized[i]));
-		}
-		if (ft_mag.size() > 0)
-		{
-			ft_mag[0] = 0; // ignore the zero frequency (offset)
-			int freq_max_idx = std::max_element(ft_mag.begin(), ft_mag.end()) - ft_mag.begin();
-			return frequency_ft[freq_max_idx];
-		}
-		else
-		{
-			return 0;
-		}
 	}
 	/// <summary>
 	///  Get time between triggers
@@ -308,7 +294,7 @@ public:
 			// calculate min for setting of hysteresis level
 			double min = *std::min_element(raw_data.begin(), raw_data.end());
 			hysteresis_level
-			    = trigger_level + (min - trigger_level) * hysteresis_factor;
+				= trigger_level + (min - trigger_level) * hysteresis_factor;
 			// use rising edge trigger functionality to find all phase-aligned points with the trigger
 			std::vector<double> phase_aligned_t = {};
 			bool hysteresis_hit = false;
@@ -333,10 +319,25 @@ public:
 				{
 					sum_of_periods += phase_aligned_t[i + 1] - phase_aligned_t[i];
 				}
+				period = sum_of_periods / (phase_aligned_t.size() - 1);
 			}
-			period = sum_of_periods / (phase_aligned_t.size() - 1);
 		}
 		return period;
+	}
+	double GetAverage()
+	{
+		//i'm going to use vpp data since it should contain a whole number of periods
+		if (periodic_data.size()==0)
+		{
+			return 0;
+		}
+		double sum = 0;
+		for (int i = 0; i < periodic_data.size(); i++)
+		{
+			sum += periodic_data[i];
+		}
+		sum /= periodic_data.size();
+		return sum;
 	}
 	void ApplyFFT()
 	{
@@ -352,6 +353,25 @@ public:
 		{
 			data_ft_out_normalized[i].real(data_ft_out[i][0] / (ft_size));
 			data_ft_out_normalized[i].imag(data_ft_out[i][1] / (ft_size));
+		}
+	}
+	double GetDominantFrequency() // using fft (don't use this as it is not supported)
+	{
+		std::vector<double> ft_mag;
+		ApplyFFT();
+		for (int i = 0; i < ft_size; i++)
+		{
+			ft_mag.push_back(std::abs(data_ft_out_normalized[i]));
+		}
+		if (ft_mag.size() > 0)
+		{
+			ft_mag[0] = 0; // ignore the zero frequency (offset)
+			int freq_max_idx = std::max_element(ft_mag.begin(), ft_mag.end()) - ft_mag.begin();
+			return frequency_ft[freq_max_idx];
+		}
+		else
+		{
+			return 0;
 		}
 	}
 	double GetDCComponent()
@@ -408,7 +428,7 @@ private:
 	std::vector<double> time = {};
 	std::vector<double> data = {};
 	std::vector<double> extended_data = {};
-	std::vector<double> vpp_data = {}; // i create this vector to just contain 3 periods
+	std::vector<double> periodic_data = {}; // i create this vector to just contain n periods
 	int channel;
 	int filter_mode = 0;
 	double delay_s = 0;
@@ -419,7 +439,7 @@ private:
 	// frequency stuff
 	std::vector<double> raw_data = {}; // to be copied to data_ft_in and used in frequency transform
 	std::vector<double> raw_time = {}; // time associated with raw_data
-	int ft_size = 16384; // 2^15
+	int ft_size = 16384*4; // 2^15
 	double* data_ft_in; // raw_data copied to double array
 	fftw_complex* data_ft_out; // fft is output into this complex number array
 	std::vector<std::complex<double>> data_ft_out_normalized = {}; // std vector which we copy data_ft_out to, normalized, uses std::complex instead of fftw_complex which gives us handy functions

@@ -93,9 +93,9 @@ public:
 			//// TODO: Implement Single Capture (Stop after one trigger event is found)
 			//ImGui::Button("Single", ImVec2(120, 30));
 			//ImGui::TableNextColumn();
-			AutofitY = WhiteOutlineButton("Auto Fit  \u2195", ImVec2(button_width, 30));
+			AutofitY = WhiteOutlineButton(u8"Auto Fit  \u2195", ImVec2(button_width, 30));
 			ImGui::TableNextColumn();
-			AutofitX = WhiteOutlineButton("Auto Fit  \u2194", ImVec2(button_width, 30));
+			AutofitX = WhiteOutlineButton(u8"Auto Fit  \u2194", ImVec2(button_width, 30));
 			ImGui::EndTable();
 		}
 

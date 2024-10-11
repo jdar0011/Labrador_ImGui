@@ -4,6 +4,7 @@
 #include "implot_internal.h"
 #include <iostream>
 #include <string>
+#include "librador.h"
 #include "PSUControl.hpp"
 #include "OSCControl.hpp"
 #include "SGControl.hpp"
@@ -193,10 +194,8 @@ class App : public AppBase<App>
 			    ImVec2(plot_width, window_size.y - 2*style.WindowPadding.y - menu_height),
 			    false);
 			style.ItemSpacing = ImVec2(padding, padding);
-
+			
 			// Render scope
-			// TODO: could potentially combine scope and scope controls because they will
-			// have a lot of shared responsibilities
 			PlotWidgetObj.setSize(ImVec2(plot_width, plot_height));
 			PlotWidgetObj.Render();
 			

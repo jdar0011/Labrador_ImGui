@@ -108,7 +108,9 @@ public:
 				ImGui::Text("Duty Cycle");
 				ImGui::TableNextColumn();
 				ImGui::SetNextItemWidth(inpWidth);
+				changed |= ImGui::DragInt(("##dc_control_" + label).c_str(), &dutycycle, 1, 1,
 				    100, "%d", ImGuiSliderFlags_AlwaysClamp);
+				ImGui::SameLine();
 				ImGui::Text("%%");
 			}
 

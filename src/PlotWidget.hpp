@@ -214,9 +214,9 @@ public:
 		{
 			// Period found
 			ImGui::TableNextColumn();
-			ImGui::Text("\u2206T = % .2f ms", 1000 * T);
+			ImGui::Text(u8"\u2206T = % .2f ms", 1000 * T);
 			ImGui::TableNextColumn();
-			ImGui::Text("1/\u2206T = %.2f Hz", 1 / T);
+			ImGui::Text(u8"1/\u2206T = %.2f Hz", 1 / T);
 		}
 		else
 		{
@@ -275,6 +275,8 @@ public:
 		OSC2Data.SetData();
 		OSC1Data.SetRawData();
 		OSC2Data.SetRawData();
+		OSC1Data.SetPeriodicData();
+		OSC2Data.SetPeriodicData();
 		OSC1Data.ApplyFFT();
 		OSC2Data.ApplyFFT();
 		AutoSetOscGain();
@@ -407,7 +409,7 @@ public:
 		{
 			OSCData_ptr = &OSC2Data;
 		}
-		TriggerLevel->setLevel(OSCData_ptr->GetDCComponent());
+		TriggerLevel->setLevel(OSCData_ptr->GetAverage());
 		if (trigger_type == constants::TriggerType::RISING_EDGE)
 		{
 			*TriggerHysteresis
