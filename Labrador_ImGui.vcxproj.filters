@@ -130,9 +130,6 @@
     <ClInclude Include="src\util.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\SignalType.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\UIComponents.hpp" />
     <ClInclude Include="src\SGControl.hpp" />
     <ClInclude Include="src\PSUControl.hpp" />
@@ -144,5 +141,9 @@
     <ClInclude Include="src\ControlWidget.hpp" />
     <ClInclude Include="src\CursorProperties.hpp" />
     <ClInclude Include="src\App.hpp" />
+    <ClInclude Include="src\SignalType.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
   </ItemGroup>
 </Project>

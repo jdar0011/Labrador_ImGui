@@ -139,6 +139,7 @@ class AppBase
         {
 			printf("Error loading arrow font");
         }
+
         io.Fonts->Build();
         // Load Images
 

@@ -1,3 +1,20 @@
+# About
+
+- This application is a control interface for the [Espotek Labrador Portable Lab Bench](https://espotek.com/labrador/)
+- The primary goals of the design it to be student friendly and accessible, meaning that advanced features are not present
+- The original application for the board can be found [here](https://github.com/EspoTek/Labrador)
+- Developed as an ECSE Final Year Project at Monash University
+
+# Installation
+
+- *Windows Installer to be released October 2024*
+
+# Running the Code
+
+- *Currently for Windows devices only*
+- This application is developed with Visual Studio 2022
+- Clone the respository using Visual Studio 2022 to build and run the latest variant of the application
+
 # User Documentation
 
 ### Power Supply Unit (PSU)
