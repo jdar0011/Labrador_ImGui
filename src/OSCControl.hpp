@@ -274,16 +274,22 @@ public:
 				nfdresult_t result = NFD_SaveDialog(FileExtension, NULL, &OSC2WritePath);
 				if (result == NFD_OKAY)
 				{
+#ifdef DEBUG
 					puts("Success!");
 					puts(OSC2WritePath);
+#endif
 				}
 				else if (result == NFD_CANCEL)
 				{
+#ifdef DEBUG
 					puts("User pressed cancel.");
+#endif
 				}
 				else
 				{
+#ifdef DEBUG
 					printf("Error: %s\n", NFD_GetError());
+#endif
 				}
 			}
 		}
@@ -315,16 +321,22 @@ public:
 				nfdresult_t result = NFD_SaveDialog(FileExtension, NULL, &OSC2WritePath);
 				if (result == NFD_OKAY)
 				{
+#ifdef DEBUG
 					puts("Success!");
 					puts(OSC2WritePath);
+#endif
 				}
 				else if (result == NFD_CANCEL)
 				{
+#ifdef DEBUG
 					puts("User pressed cancel.");
+#endif
 				}
 				else
 				{
+#ifdef DEBUG
 					printf("Error: %s\n", NFD_GetError());
+#endif
 				}
 			}
 		}

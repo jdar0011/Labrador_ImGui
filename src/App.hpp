@@ -34,7 +34,9 @@ class App : public AppBase<App>
 		int error = librador_setup_usb();
 		if (error)
 		{
+#ifdef DEBUG
 			printf("librador_setup_usb FAILED with error code %d\t\n", error);
+#endif
 			// std::exit(error);
 			connected = false;
 		}
@@ -42,13 +44,16 @@ class App : public AppBase<App>
 			connected = true;
 		if (connected)
 		{
+#ifdef DEBUG
 			printf("Device Connected Successfully!\n");
+#endif
 
 			// Print firmware info
 			uint16_t deviceVersion = librador_get_device_firmware_version();
 			uint8_t deviceVariant = librador_get_device_firmware_variant();
+#ifdef DEBUG
 			printf("deviceVersion=%hu, deviceVariant=%hhu\n", deviceVersion, deviceVariant);
-
+#endif
 			// Reset Signal Generators
 			SG1Widget.reset();
 			SG2Widget.reset();
@@ -65,7 +70,9 @@ class App : public AppBase<App>
 		int error = librador_init();
 		if (error)
 		{
+#ifdef DEBUG
 			printf("librador_init FAILED with error code %d\t\n", error);
+#endif
 			// std::exit(error);
 			connected = false;
 		}
@@ -160,7 +167,9 @@ class App : public AppBase<App>
 					TextRight("No Labrador Found     ");
 					if (frames % labRefreshRate == 0)
 					{
+#ifdef DEBUG
 						std::cout << "Attempting to connect to Labrador\n";
+#endif
 						connectToLabrador();
 					}
 				}
@@ -268,8 +277,9 @@ class App : public AppBase<App>
 
 	void ShutDown()
 	{
+#ifdef DEBUG
 		printf("Shutting Down\n");
-
+#endif
 		// Turn off Signal Generators
 		SG1Widget.reset();
 		SG2Widget.reset();

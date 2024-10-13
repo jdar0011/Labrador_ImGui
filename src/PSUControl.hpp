@@ -33,9 +33,11 @@ public:
 		int error = librador_set_power_supply_voltage(voltage);
 		if (error)
 		{
+#ifdef DEBUG
 			printf("librador_set_power_supply_voltage FAILED with error code "
 				    "%d\tExiting...",
 				error);
+#endif
 			// Board not connected (continue to run)
 			if (error == -1101)
 			{

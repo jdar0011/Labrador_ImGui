@@ -472,7 +472,9 @@ public:
 		{
 			librador_set_oscilloscope_gain(1 << currentLabOscGain);
 			last_update_frame = frame;
+#ifdef DEBUG
 			printf("Frame: %03d, gain: %02d\n", frame, 1 << currentLabOscGain);
+#endif
 		}
 	}
 
