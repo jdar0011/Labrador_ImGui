@@ -11,7 +11,7 @@
 
 # Running the Code
 
-- *Currently for Windows devices only*
+- **Currently for Windows devices only**
 - This application is developed with Visual Studio 2022
 - Clone the respository using Visual Studio 2022 to build and run the latest variant of the application
 
