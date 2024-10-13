@@ -173,13 +173,13 @@ public:
 		float plt_amp = 1.0f;
 
 		float amp_label_x[2] = { period / 4, period / 4 };
-		float amp_label_y[2] = { plt_amp, 0.0f };
+		float amp_label_y[2] = { plt_amp, -plt_amp };
 
 		ImPlot::PlotLine(("##" + label + "_amp").c_str(), amp_label_x, amp_label_y, 2);
 		ImPlot::PlotScatter(("##" + label + "_amp_pnt").c_str(), amp_label_x, amp_label_y, 2);
 		// Annotate amplitude
-		ImPlot::Annotation(period / 4, 0, ImVec4(0, 0, 0, 0), ImVec2(0, 5), true,
-		    "A = %.2E V", amplitude.getValue());
+		ImPlot::Annotation(period / 4, 0, ImVec4(0, 0, 0, 0), ImVec2(10, 5), true,
+		    "A = %.2f V", amplitude.getValue());
 
 		float per_label_x[2] = { 0, period };
 		float per_label_y[2] = { 0.0f, 0.0f };
@@ -188,7 +188,7 @@ public:
 		ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
 		// Annotate frequency
 		ImPlot::Annotation(3 * period / 4, 0, ImVec4(0, 0, 0, 0), ImVec2(0, -5), true,
-		    "T = %.2E s", frequency.getValue() /100);
+		    "T = %.2E s", 1/frequency.getValue());
 	}
 	/// <summary>
 	/// Set the Signal Generator on the labrador board.
@@ -232,7 +232,7 @@ public:
 		ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
 		// Annotate amplitude
 		ImPlot::Annotation(period / 4, 0, ImVec4(0, 0, 0, 0), ImVec2(0, -5), true,
-		    "T = %.2f s", 1 / 100);
+		    "T = %.2E s", 1 / frequency.getValue());
 	}
 
 
@@ -330,7 +330,7 @@ public:
 		ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
 		// Annotate amplitude
 		ImPlot::Annotation(period / 4, 0, ImVec4(0, 0, 0, 0), ImVec2(0, 5), true,
-		    "T = %.2f s", 1 / 100);
+		    "T = %.2E s", 1 / frequency.getValue());
 	}
 
 	/// <summary>
@@ -375,7 +375,7 @@ public:
 		ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
 		// Annotate amplitude
 		ImPlot::Annotation(period / 2, 0, ImVec4(0, 0, 0, 0), ImVec2(0, -5), true,
-		    "T = %.2f s", 1 / 100);
+		    "T = %.2E s", 1 / frequency.getValue());
 	}
 
 	/// <summary>

@@ -172,11 +172,11 @@ public:
 				ImGui::TableNextColumn();
 				ImGui::Text("Cursor properties:");
 				ImGui::TableNextColumn();
-				ImGui::Text("dT = %.2f s", cursor2_x - cursor1_x);
+				ImGui::Text(u8"\u2206T = %.2f s", cursor2_x - cursor1_x);
 				ImGui::TableNextColumn();
-				ImGui::Text("1/dT = %.2f Hz", 1 / (cursor2_x - cursor1_x));
+				ImGui::Text(u8"1/\u2206T = %.2f Hz", 1 / (cursor2_x - cursor1_x));
 				ImGui::TableNextColumn();
-				ImGui::Text("dV = %.2f V",cursor2_y - cursor1_y);
+				ImGui::Text(u8"\u2206V = %.2f V",cursor2_y - cursor1_y);
 				ImGui::TableNextRow();
 			}
 			

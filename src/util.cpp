@@ -103,7 +103,7 @@ void PreviewStyle()
 	ImPlotStyle& style = ImPlot::GetStyle();
 
 	ImVec4* colors = style.Colors;
-	colors[ImPlotCol_Line] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f); // WHITE
+	colors[ImPlotCol_Line] = ImVec4(1.0f, 1.0f, 1.0f, 0.5f); // WHITE
 	colors[ImPlotCol_Fill] = ImVec4(1.0f, 1.0f, 1.0f, 0.0f); // TRANSPARENT
 	//colors[ImPlotCol_MarkerOutline] = IMPLOT_AUTO_COL;
 	//colors[ImPlotCol_MarkerFill] = IMPLOT_AUTO_COL;
@@ -124,8 +124,8 @@ void PreviewStyle()
 	//colors[ImPlotCol_Crosshairs] = ImVec4(0.23f, 0.10f, 0.64f, 0.50f);
 
 	//style.LineWeight = 1.5;
-	//style.Marker = ImPlotMarker_Up;
-	// style.MarkerSize = 2;
+	// style.Marker = ImPlotMarker_Plus;
+	style.MarkerSize = 2;
 	//style.MarkerWeight = 1;
 	//style.FillAlpha = 1.0f;
 	//style.ErrorBarSize = 5;

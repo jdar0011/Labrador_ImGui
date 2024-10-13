@@ -300,8 +300,15 @@ class App : public AppBase<App>
 		std::string line;
 		std::string curr_header = "";
 
+		// Read until User Documentation section
 		while (std::getline(file, line))
 		{
+			if (line == "# User Documentation") break;
+		}
+
+		while (std::getline(file, line))
+		{
+			
 			if (line.compare(0, 4, "### ") == 0)
 			{
 				line.erase(0, 4);
@@ -323,6 +330,7 @@ class App : public AppBase<App>
 				replace_all(line, "**", "");
 				buffer << line << '\n';
 			}
+			
 		}
 	}
 

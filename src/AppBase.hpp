@@ -53,21 +53,59 @@ bool LoadTextureFromMemory(const void* data, size_t data_size, GLuint* out_textu
 bool LoadTextureFromFile(
     const char* file_name, GLuint* out_texture, int* out_width, int* out_height)
 {
-	FILE* f = fopen(file_name, "rb");
-	if (f == NULL)
-		return false;
-	fseek(f, 0, SEEK_END);
-	size_t file_size = (size_t)ftell(f);
-	if (file_size == -1)
-		return false;
-	fseek(f, 0, SEEK_SET);
-	void* file_data = IM_ALLOC(file_size);
-	fread(file_data, 1, file_size, f);
-	bool ret
-	    = LoadTextureFromMemory(file_data, file_size, out_texture, out_width, out_height);
-	IM_FREE(file_data);
-	return ret;
+    FILE* f = fopen(file_name, "rb");
+    if (f == NULL)
+        return false;
+    fseek(f, 0, SEEK_END);
+    size_t file_size = (size_t)ftell(f);
+    if (file_size == -1)
+        return false;
+    fseek(f, 0, SEEK_SET);
+    void* file_data = IM_ALLOC(file_size);
+    fread(file_data, 1, file_size, f);
+    bool ret
+        = LoadTextureFromMemory(file_data, file_size, out_texture, out_width, out_height);
+    IM_FREE(file_data);
+    return ret;
 }
+
+// Simple helper function to load an image into a OpenGL texture with common settings
+bool LoadImageFromMemory(const void* data, size_t data_size, GLFWimage* out_image)
+{
+    // Load from file
+    int image_width = 0;
+    int image_height = 0;
+    unsigned char* image_data = stbi_load_from_memory(
+        (const unsigned char*)data, (int)data_size, &out_image->width, &out_image->height, NULL, 4);
+    if (image_data == NULL)
+        return false;
+
+    out_image->pixels = image_data;
+
+    return true;
+}
+
+// Open and read a file, then forward to LoadTextureFromMemory()
+bool LoadImageFromFile(
+    const char* file_name, GLFWimage* out_texture)
+{
+    FILE* f = fopen(file_name, "rb");
+    if (f == NULL)
+        return false;
+    fseek(f, 0, SEEK_END);
+    size_t file_size = (size_t)ftell(f);
+    if (file_size == -1)
+        return false;
+    fseek(f, 0, SEEK_SET);
+    void* file_data = IM_ALLOC(file_size);
+    fread(file_data, 1, file_size, f);
+    bool ret
+        = LoadImageFromMemory(file_data, file_size, out_texture);
+    IM_FREE(file_data);
+    return ret;
+}
+
+
 
 static void ErrorCallback(int error, const char* description)
 {
@@ -99,6 +137,13 @@ class AppBase
             std::exit(1);
 
         // glfwSetWindowSize(window, 1920, 1080);
+
+        // Load Icon
+        GLFWimage icons[2];
+        LoadImageFromFile(".\\misc\\media\\icon128.png", &icons[0]);
+        LoadImageFromFile(".\\misc\\media\\icon64.png", &icons[1]);
+
+        glfwSetWindowIcon(window, 2, icons);
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1);
 
@@ -147,6 +192,7 @@ class AppBase
 			printf("Error loading arrow font");
 #endif
         }
+
         io.Fonts->Build();
         // Load Images
 
