@@ -125,4 +125,5 @@ void replace_all(
     std::string& s, std::string const& toReplace, std::string const& replaceWith);
 void MultiplyButtonColour(ImU32* ButtonColour, float multiplier);
 std::string NumToString(double num,int precision);
+int MetricFormatter(double value, char* buff, int size, void* data);
 #endif

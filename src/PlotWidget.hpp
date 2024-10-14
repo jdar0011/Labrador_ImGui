@@ -66,37 +66,49 @@ public:
 		    init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Once);
 		if (ImPlot::BeginPlot("##Oscilloscopes", plot_size, ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus))
 		{
+			// No Labels for plot
 			ImPlot::SetupAxes("", "", ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
-			// Autofit so that 3 periods occur in a time window
+			// Lock 0 to the max value
+			ImPlot::SetupAxis(ImAxis_X1, nullptr, ImPlotAxisFlags_LockMax);
+			// Ensure plot cannot be expanded larger than the size of the buffer
+			ImPlot::SetupAxisZoomConstraints(ImAxis_X1, 0, 60);
+			ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, -20, 20);
+			// Setup Axis to show units
+			ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"s");
+			ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
+			// Autofit X so that 3 periods occur in a time window
 			// If there are 2 oscs visible use the one with the larger period
 			// If none are visible, reset to default
 			if (osc_control->AutofitX) 
 			{	
 				double T_osc1 = OSC1Data.GetPeriod();
 				double T_osc2 = OSC2Data.GetPeriod();
-				double T = 0;
+				double T = init_time_range_lower;
 				if (osc_control->DisplayCheckOSC1 && !osc_control->DisplayCheckOSC2)
 				{
 					T = T_osc1;
-					T *= 3;
+					T *= -3;
 				}
 				else if (osc_control->DisplayCheckOSC2 && !osc_control->DisplayCheckOSC1)
 				{
 					T = T_osc2;
-					T *= 3;
+					T *= -3;
 				}
 				else if (osc_control->DisplayCheckOSC2 && osc_control->DisplayCheckOSC1)
 				{
 					T = T_osc1 > T_osc2 ? T_osc1 : T_osc2;
-					T *= 3;
+					T *= -3;
 				}
 				else if (!osc_control->DisplayCheckOSC2 && !osc_control->DisplayCheckOSC1)
 				{
-					T = init_time_range_upper;
+					T = init_time_range_lower;
 				}
-				ImPlot::SetupAxisLimits(ImAxis_X1,init_time_range_lower,T,ImPlotCond_Always);
+				// if no data, 0 period, set to default range
+				T = T == 0 ? init_time_range_lower : T;
+				ImPlot::SetupAxisLimits(ImAxis_X1,T,init_time_range_upper,ImPlotCond_Always);
 			}
-			if (osc_control->AutofitY) // Autofits so that data is centered and takes up 1/3 of the screen (this can be written way cleaner)
+			// Autofits Y so that data is centered and takes up 1/3 of the screen (this can be written way cleaner)
+			if (osc_control->AutofitY) 
 			{
 				double osc1_max;
 				double osc2_max;
@@ -127,7 +139,11 @@ public:
 				double osc_range = osc_max - osc_min;
 				double osc_frac = 0.5;
 				double pad = 0.5 * osc_range * (1 / osc_frac - 1);
-				if (osc_control->DisplayCheckOSC1 || osc_control->DisplayCheckOSC2) // only autofit if there is visible data
+				if (OSC1Data.GetData().size() == 0 && OSC2Data.GetData().size() == 0)
+				{
+					ImPlot::SetupAxisLimits(ImAxis_Y1, init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Always);
+				}
+				else if (osc_control->DisplayCheckOSC1 || osc_control->DisplayCheckOSC2) // only autofit if there is visible data
 				{
 					ImPlot::SetupAxisLimits(ImAxis_Y1, osc_min - pad, osc_max + pad,ImPlotCond_Always);
 				}
@@ -137,7 +153,6 @@ public:
 				}
 				osc_control->AutofitY = false;
 			}
-			ImPlot::SetupAxisZoomConstraints(ImAxis_X1,0,60);// ensure plot cannot be expanded larger than the size of the buffer
 			// Plot oscilloscope 1 signal
 			std::vector<double> time_osc1 = OSC1Data.GetTime();
 			ImPlot::SetNextLineStyle(osc_control->OSC1Colour.Value);
@@ -146,7 +161,8 @@ public:
 				ImPlot::PlotLine("##Osc 1", time_osc1.data(), analog_data_osc1.data(),
 				    analog_data_osc1.size());
 			}
-			OSC1Data.SetTime(ImPlot::GetPlotLimits().X.Size(), ImPlot::GetPlotLimits().X.Min);
+			// Set OscData Time Vector to match the current X-axis
+			OSC1Data.SetTime(ImPlot::GetPlotLimits().X.Size(), -ImPlot::GetPlotLimits().X.Size());
 			// Plot Oscilloscope 2 Signal
 			std::vector<double> time_osc2 = OSC2Data.GetTime();
 			ImPlot::SetNextLineStyle(osc_control->OSC2Colour.Value);
@@ -155,7 +171,8 @@ public:
 				ImPlot::PlotLine("##Osc 2", time_osc2.data(), analog_data_osc2.data(),
 				    analog_data_osc2.size());
 			}
-			OSC2Data.SetTime(ImPlot::GetPlotLimits().X.Size(), ImPlot::GetPlotLimits().X.Min);
+			// Set OscData Time Vector to match the current X-axis
+			OSC2Data.SetTime(ImPlot::GetPlotLimits().X.Size(), -ImPlot::GetPlotLimits().X.Size());
 			// Plot cursor 1
 			if (osc_control->Cursor1toggle)
 				drawCursor(1, &cursor1_x, &cursor1_y);
@@ -472,7 +489,7 @@ public:
 		{
 			librador_set_oscilloscope_gain(1 << currentLabOscGain);
 			last_update_frame = frame;
-#ifdef DEBUG
+#ifndef NDEBUG
 			printf("Frame: %03d, gain: %02d\n", frame, 1 << currentLabOscGain);
 #endif
 		}
@@ -542,8 +559,8 @@ protected:
 	const char* label;
 	ImVec2 size;
 	bool paused = false;
-	double init_time_range_lower = 0;
-	double init_time_range_upper = 0.03;
+	double init_time_range_lower = -0.03;
+	double init_time_range_upper = 0;
 	double init_voltage_range_lower = -1.0;
 	double init_voltage_range_upper = 5.0;
 	OSCControl* osc_control;

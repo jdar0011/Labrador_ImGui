@@ -177,7 +177,7 @@ class AppBase
         ImFont* default_font = io.Fonts->AddFontFromFileTTF(font_path_default, 18.0f,nullptr,io.Fonts->GetGlyphRangesDefault());
         if (!default_font)
         {
-#ifdef DEBUG
+#ifndef NDEBUG
 			printf("Error loading default font");
 #endif
         }
@@ -185,10 +185,11 @@ class AppBase
 		config.MergeMode = true;
 		ImWchar arrow_ranges[] = { 0x2190, 0x2206, 0 };
         ImFont* arrow_font = io.Fonts->AddFontFromFileTTF(font_path_special, 24.0f,&config,arrow_ranges);
+        ImFont* greek_font = io.Fonts->AddFontFromFileTTF(font_path_special, 18.0f, &config, io.Fonts->GetGlyphRangesGreek());
         //ImFont* arrow_font = io.Fonts->AddFontFromFileTTF("./misc/fonts/arial.ttf", 24.0f, nullptr, arrow_ranges);
         if (!arrow_font)
         {
-#ifdef DEBUG
+#ifndef NDEBUG
 			printf("Error loading arrow font");
 #endif
         }

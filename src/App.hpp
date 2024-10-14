@@ -34,7 +34,7 @@ class App : public AppBase<App>
 		int error = librador_setup_usb();
 		if (error)
 		{
-#ifdef DEBUG
+#ifndef NDEBUG
 			printf("librador_setup_usb FAILED with error code %d\t\n", error);
 #endif
 			// std::exit(error);
@@ -44,16 +44,25 @@ class App : public AppBase<App>
 			connected = true;
 		if (connected)
 		{
-#ifdef DEBUG
+#ifndef NDEBUG
 			printf("Device Connected Successfully!\n");
 #endif
 
 			// Print firmware info
 			uint16_t deviceVersion = librador_get_device_firmware_version();
 			uint8_t deviceVariant = librador_get_device_firmware_variant();
-#ifdef DEBUG
+#ifndef NDEBUG
 			printf("deviceVersion=%hu, deviceVariant=%hhu\n", deviceVersion, deviceVariant);
 #endif
+			// Flash Firmware Variant 2 if it is not currently flashed
+			if (deviceVariant != 2)
+			{
+#ifndef NDEBUG
+				printf("%hhu", deviceVariant);
+#endif
+				librador_jump_to_bootloader();
+				system("firmware\\RESET_TO_VARIANT_2.bat");
+			}
 			// Reset Signal Generators
 			SG1Widget.reset();
 			SG2Widget.reset();
@@ -70,7 +79,7 @@ class App : public AppBase<App>
 		int error = librador_init();
 		if (error)
 		{
-#ifdef DEBUG
+#ifndef NDEBUG
 			printf("librador_init FAILED with error code %d\t\n", error);
 #endif
 			// std::exit(error);
@@ -167,7 +176,7 @@ class App : public AppBase<App>
 					TextRight("No Labrador Found     ");
 					if (frames % labRefreshRate == 0)
 					{
-#ifdef DEBUG
+#ifndef NDEBUG
 						std::cout << "Attempting to connect to Labrador\n";
 #endif
 						connectToLabrador();
@@ -277,7 +286,7 @@ class App : public AppBase<App>
 
 	void ShutDown()
 	{
-#ifdef DEBUG
+#ifndef NDEBUG
 		printf("Shutting Down\n");
 #endif
 		// Turn off Signal Generators

@@ -33,7 +33,7 @@ public:
 		int error = librador_set_power_supply_voltage(voltage);
 		if (error)
 		{
-#ifdef DEBUG
+#ifndef NDEBUG
 			printf("librador_set_power_supply_voltage FAILED with error code "
 				    "%d\tExiting...",
 				error);
