@@ -241,6 +241,9 @@ class AppBase
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             glfwSwapBuffers(window);
+
+            flashFirmware();
+
         }
 
         ShutDown();
@@ -260,6 +263,10 @@ class AppBase
 	{
 		static_cast<Derived*>(this)->ShutDown();
 	}
+    void flashFirmware()
+    {
+        static_cast<Derived*>(this)->flashFirmware();
+    }
 
   private:
     GLFWwindow* window = nullptr;

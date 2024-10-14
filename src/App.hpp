@@ -11,6 +11,32 @@
 #include "PlotWidget.hpp"
 #include "PlotControl.hpp"
 #include "util.h"
+#include <filesystem>
+#include <stdlib.h> 
+#include <chrono>
+#include <thread>
+#ifdef NDEBUG
+#include "AtlBase.h"
+#include "AtlConv.h"
+int windows_system(const char* cmd) {
+	PROCESS_INFORMATION p_info;
+	STARTUPINFO s_info;
+	DWORD ReturnValue = NULL;
+	CA2T programpath(cmd);
+
+	memset(&s_info, 0, sizeof(s_info));
+	memset(&p_info, 0, sizeof(p_info));
+	s_info.cb = sizeof(s_info);
+
+	if (CreateProcess(NULL,programpath, NULL, NULL, 0, CREATE_NO_WINDOW, NULL, NULL, &s_info, &p_info)) {
+		WaitForSingleObject(p_info.hProcess, INFINITE);
+		GetExitCodeProcess(p_info.hProcess, &ReturnValue);
+		CloseHandle(p_info.hProcess);
+		CloseHandle(p_info.hThread);
+	}
+	return ReturnValue;
+}
+#endif
 
 // #define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui_internal.h"
@@ -54,15 +80,7 @@ class App : public AppBase<App>
 #ifndef NDEBUG
 			printf("deviceVersion=%hu, deviceVariant=%hhu\n", deviceVersion, deviceVariant);
 #endif
-			// Flash Firmware Variant 2 if it is not currently flashed
-			if (deviceVariant != 2)
-			{
-#ifndef NDEBUG
-				printf("%hhu", deviceVariant);
-#endif
-				librador_jump_to_bootloader();
-				system("firmware\\RESET_TO_VARIANT_2.bat");
-			}
+
 			// Reset Signal Generators
 			SG1Widget.reset();
 			SG2Widget.reset();
@@ -168,7 +186,17 @@ class App : public AppBase<App>
 
 				if (connected)
 				{
-					TextRight("Labrador Connected     ");
+					uint8_t deviceVariant = librador_get_device_firmware_variant();
+					if (deviceVariant != 2)
+					{
+						ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+						TextRight("Incorrect Firmware Variant Detected! Flashing Correct Firmware, Please Wait...");
+						ImGui::PopStyleColor();
+					}
+					else
+					{
+						TextRight("Labrador Connected     ");
+					}
 				}
 				else
 				{
@@ -182,14 +210,17 @@ class App : public AppBase<App>
 						connectToLabrador();
 					}
 				}
-
-				const float radius = ImGui::GetTextLineHeight() * 0.4;
-				const ImU32 status_colour = ImGui::GetColorU32(
-				    connected ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
-				const ImVec2 p1 = ImGui::GetCursorScreenPos();
-				draw_list->AddCircleFilled(
-				    ImVec2(p1.x - 10, p1.y + ImGui::GetTextLineHeight() - radius), radius, status_colour); 
-
+				uint8_t deviceVariant = librador_get_device_firmware_variant();
+				if (!(deviceVariant != 2 && connected))
+				{
+					const float radius = ImGui::GetTextLineHeight() * 0.4;
+					const ImU32 status_colour = ImGui::GetColorU32(
+						connected ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
+					const ImVec2 p1 = ImGui::GetCursorScreenPos();
+					draw_list->AddCircleFilled(
+						ImVec2(p1.x - 10, p1.y + ImGui::GetTextLineHeight() - radius), radius, status_colour);
+				}
+				 
 				ImGui::EndMenuBar();
 				
 				
@@ -405,6 +436,37 @@ class App : public AppBase<App>
         {
         }
     }
+
+	void flashFirmware()
+	{
+		// Flash Firmware Variant 2 if it is not currently flashed
+		uint8_t deviceVariant = librador_get_device_firmware_variant();
+		if (deviceVariant != 2 && frames % 60 == 1)
+		{
+			librador_jump_to_bootloader();
+#ifdef NDEBUG
+			std::filesystem::current_path("./firmware");
+			std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+			windows_system("dfu-programmer atxmega32a4u erase --force");
+			windows_system("dfu-programmer atxmega32a4u flash labrafirm_0006_02.hex");
+			windows_system("dfu-programmer atxmega32a4u launch");
+			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+			windows_system("dfu-programmer atxmega32a4u launch");
+			std::filesystem::current_path("..");
+#else
+			std::filesystem::current_path("./firmware");
+			std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+			system("dfu-programmer atxmega32a4u erase --force");
+			system("dfu-programmer atxmega32a4u flash labrafirm_0006_02.hex");
+			system("dfu-programmer atxmega32a4u launch");
+			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+			system("dfu-programmer atxmega32a4u launch");
+			std::filesystem::current_path("..");
+#endif
+			librador_reset_usb();
+			connectToLabrador();
+		}
+	}
 
   private:
 	int frames = 0;
