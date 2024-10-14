@@ -75,6 +75,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <TargetName>Labrador_Controller</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -188,6 +189,7 @@ xcopy /y /d ".\libs\fftw\libfftw3-3.dll" "$(OutDir)"</Command>
     <ClInclude Include="libs\usynergy\uSynergy.h" />
     <ClInclude Include="misc\cpp\imgui_stdlib.h" />
     <ClInclude Include="misc\single_file\imgui_single_file.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="src\App.hpp" />
     <ClInclude Include="src\AppBase.hpp" />
     <ClInclude Include="src\ControlWidget.hpp" />
@@ -204,6 +206,9 @@ xcopy /y /d ".\libs\fftw\libfftw3-3.dll" "$(OutDir)"</Command>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Labrador_ImGui.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

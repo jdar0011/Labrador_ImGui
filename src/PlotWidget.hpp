@@ -164,6 +164,18 @@ public:
 
 			ImPlot::EndPlot();
 		}
+		
+		// Help Button
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+		if (ImGui::Button(" ? "))
+		{
+			show_help = true;
+		}
+
+		ImGui::PopStyleColor();
+
+		// Signal and Cursor Properties
+		ImGui::SameLine();
 		if (ImGui::BeginTable("signal_props", 4))
 		{
 			ImGui::TableSetupColumn("One", ImGuiTableColumnFlags_WidthFixed, 180);
@@ -176,27 +188,20 @@ public:
 				ImGui::TableNextColumn();
 				ImGui::Text(u8"1/\u2206T = %.2f Hz", 1 / (cursor2_x - cursor1_x));
 				ImGui::TableNextColumn();
-				ImGui::Text(u8"\u2206V = %.2f V",cursor2_y - cursor1_y);
+				ImGui::Text(u8"\u2206V = %.2f V", cursor2_y - cursor1_y);
 				ImGui::TableNextRow();
 			}
-			
+
 			if (osc_control->SignalPropertiesToggle)
 			{
 				writeSignalProps(OSC1Data, osc_control->OSC1Colour);
 				ImGui::TableNextRow();
 				writeSignalProps(OSC2Data, osc_control->OSC2Colour);
 			}
-			
+
 			ImGui::EndTable();
 		}
-		ImGui::SameLine(region_size.x - 25);
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-		if (ImGui::Button("?"))
-		{
-			show_help = true;
-		}
-
-		ImGui::PopStyleColor();
+		
 		ImGui::PopStyleColor();
 	}
 

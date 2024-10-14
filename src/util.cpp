@@ -4,16 +4,16 @@
 #include <iomanip>
 
 
-float constants::x_preview[constants::PREVIEW_RES];
-float constants::sine_preview[constants::PREVIEW_RES];
-float constants::square_preview[constants::PREVIEW_RES];
-float constants::sawtooth_preview[constants::PREVIEW_RES];
-float constants::triangle_preview[constants::PREVIEW_RES];
+float constants::x_preview[constants::PREVIEW_RES+1];
+float constants::sine_preview[constants::PREVIEW_RES+1];
+float constants::square_preview[constants::PREVIEW_RES+1];
+float constants::sawtooth_preview[constants::PREVIEW_RES+1];
+float constants::triangle_preview[constants::PREVIEW_RES+1];
 
 
 
 /// <summary>
-/// Initialise global preview arrays
+/// Initialise global preview arrays for Signal Generator control
 /// </summary>
 void init_constants()
 {
@@ -22,21 +22,25 @@ void init_constants()
 	{
 		constants::x_preview[i] = i * 1.0f;
 		constants::sine_preview[i] = sinf(i * (1.0f / pr) * 2 * M_PI);
+		constants::sawtooth_preview[i] = -1.0f + 2.0f / pr * i;
 		if (i < pr / 2)
 		{
 			constants::square_preview[i] = -1.0f;
-			constants::sawtooth_preview[i] = -1.0f + 4.0f / pr * i;
-			constants::triangle_preview[i] = constants::sawtooth_preview[i];
+			constants::triangle_preview[i] = -1.0f + 4.0f / pr * i;
 		}
 		else
 		{
 			constants::square_preview[i] = 1.0f;
-			constants::sawtooth_preview[i] = constants::sawtooth_preview[i - pr / 2];
 			constants::triangle_preview[i] = constants::triangle_preview[pr - i - 1];
 		}
-		
-
 	}
+
+	// Wraparound for continuous plot
+	constants::x_preview[pr] = pr * 1.0f;
+	constants::sine_preview[pr] = constants::sine_preview[0];
+	constants::square_preview[pr] = constants::square_preview[0];
+	constants::triangle_preview[pr] = constants::triangle_preview[0];
+	constants::sawtooth_preview[pr] = constants::sawtooth_preview[0];
 }
 
 /// <summary>

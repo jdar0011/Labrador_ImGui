@@ -29,11 +29,11 @@ constexpr float GEN_ACCENT[3] = { 150. / 255, 150. / 255, 150. / 255 };
     // Signal Generator Preview Waves
 constexpr char* wavetypes[4] = { "Sine", "Square", "Sawtooth", "Triangle" };
 constexpr int PREVIEW_RES = 128;
-extern float x_preview[PREVIEW_RES];
-extern float sine_preview[PREVIEW_RES];
-extern float square_preview[PREVIEW_RES];
-extern float sawtooth_preview[PREVIEW_RES];
-extern float triangle_preview[PREVIEW_RES];
+extern float x_preview[PREVIEW_RES+1];
+extern float sine_preview[PREVIEW_RES+1];
+extern float square_preview[PREVIEW_RES+1];
+extern float sawtooth_preview[PREVIEW_RES+1];
+extern float triangle_preview[PREVIEW_RES+1];
 
 // Frequency Units
 static std::vector<std::string> freq_prefs = { "", "k" };

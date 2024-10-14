@@ -185,7 +185,7 @@ public:
 			md_text.erase(0, 2);
 			ImGui::BulletText("");
 			ImGui::SameLine();
-			ImGui::TextWrapped(md_text.c_str());
+			ImGui::TextWrapped(u8"%s", md_text.c_str());
 		}
 		else if (md_text.compare(0, 4, "  - ") == 0)
 		{
@@ -198,7 +198,7 @@ public:
 		}
 		else
 		{
-			ImGui::TextWrapped(md_text.c_str());
+			ImGui::TextWrapped(u8"%s", md_text.c_str());
 		}
 	}
 
@@ -207,12 +207,11 @@ public:
 		// Render Help Text from markdown format 
 		// Edit README.md to change help popup content
 
-		// Center window
-		ImGuiIO& io = ImGui::GetIO();
-		// TODO: dynamically size based on size of window
-		ImVec2 pos(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
-		ImGui::SetNextWindowPos(pos, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-		ImGui::SetNextWindowSize(pos, ImGuiCond_Always);
+		// Force center window and size
+		//ImGuiIO& io = ImGui::GetIO();
+		//ImVec2 pos(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
+		//ImGui::SetNextWindowPos(pos, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		//ImGui::SetNextWindowSize(pos, ImGuiCond_Always);
 
 		if (!ImGui::Begin((help_popup_id).c_str(), &show_help))
 		{

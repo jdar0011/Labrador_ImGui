@@ -10,14 +10,14 @@
 class GenericSignal
 {
 public:
-	GenericSignal(const std::string& label, const float* preview)
+	GenericSignal(const std::string& label, float* preview)
 	    : label(label)
 	    , preview(preview)
-	    , amplitude("##" + label + "amp", "Amplitude", 1.0f, 0.15f, 9.0f, "V",
+	    , amplitude("##" + label + "amp", "Vpeak-peak", 1.0f, 0.15f, 9.0f, "V",
 	          constants::volt_prefs, constants::volt_formats)
-	    , frequency("##" + label + "freq", "Frequncy", 100.f, 1.0f, 1e6f, "Hz",
+	    , frequency("##" + label + "freq", "Frequency", 100.f, 1.0f, 1e6f, "Hz",
 	          constants::freq_prefs, constants::freq_formats)
-	    , offset("##" + label + "os", "Offset", 0.0f, -9.0f, 9.0f, "V",
+	    , offset("##" + label + "os", "Vbase", 0.0f, -9.0f, 9.0f, "V",
 	          constants::volt_prefs, constants::volt_formats)
 	{
 	}
@@ -63,31 +63,50 @@ public:
 	{
 		ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoDecorations,
 		    ImPlotAxisFlags_NoDecorations);
-		ImPlot::SetupAxesLimits(-5, constants::PREVIEW_RES + 5, 1.2, -1.2, ImGuiCond_Always);
-		ImPlot::PlotLine(("##" + label + "_plot_preview").c_str(), constants::x_preview,
-		    preview, constants::PREVIEW_RES);
+		int period = constants::PREVIEW_RES;
+		int padding = period / 4;
+		float plt_amp = 1.0f;
+		ImPlot::SetupAxesLimits(-5 - padding, period + padding + 5, 1.2, -1.2, ImGuiCond_Always);
 
-		renderAnnotations();
+		// Plot half a waveform before and after preview 
+		ImPlot::PlotLine(("##" + label + "_plot_preview_pre").c_str(),&preview[period-padding], padding+1, 1.0, (double) - padding);
+		ImPlot::PlotLine(("##" + label + "_plot_preview").c_str(), constants::x_preview,
+		    preview, period + 1);
+		ImPlot::PlotLine(("##" + label + "_plot_preview_post").c_str(),
+			preview, padding, 1.0, period);
+
+		// Render annotations
+		float amp_label_x[2] = { 0, 0 };
+		float amp_label_y[2] = { plt_amp, -plt_amp };
+
+		ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1, 1, 1, 1));
+		ImPlot::PlotLine(("##" + label + "_amp").c_str(), amp_label_x, amp_label_y, 2);
+		ImPlot::PlotScatter(("##" + label + "_amp_pnt").c_str(), amp_label_x, amp_label_y, 2);
+		// Annotate amplitude
+		ImPlot::Annotation(period*0.5, 0, ImVec4(0, 0, 0, 0), ImVec2(0, -5), true,
+			"Vpp = %.2f V", amplitude.getValue());
+
+		float per_label_x[2] = { 0, period };
+		float per_label_y[2] = { 0.0f, 0.0f };
+
+		ImPlot::PlotLine(("##" + label + "_per").c_str(), per_label_x, per_label_y, 2);
+		ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
+		// Annotate frequency
+		ImPlot::Annotation(period*0.5, 0, ImVec4(0, 0, 0, 0), ImVec2(0, 5), true,
+			"T = %.2E s", 1 / frequency.getValue());
+		ImPlot::PopStyleColor();
 
 		ImPlot::EndPlot();
 	}
 
-
+	/// <summary>
+	/// Render Control Widgets
+	/// </summary>
+	/// <returns></returns>
 	virtual bool renderProperties()
 	{
 		bool changed = false;
-		//// Amplitude
-		// changed |= renderSliderwUnits(label + "_amp", &amplitude, 0.0f, 9.0f,
-		//     "Amplitude = %.3g", constants::volt_units, &amp_unit_idx);
 
-		//// Frequency
-		// changed |= renderSliderwUnits(label + "_freq", &frequency, 0.0f, 999.0f,
-		//     "Frequency = %.3g", constants::freq_units, &freq_unit_idx);
-
-		//// Offset
-		// changed |= renderSliderwUnits(label + "_os", &offset, 0.0f, 3.0f, "Offset =
-		// %.3g",
-		//     constants::volt_units, &os_unit_idx);
 		const float width = ImGui::GetContentRegionAvail().x * 0.9;
 		const float labWidth = 80.0f;
 		const float unitWidth = 50.0f;
@@ -108,18 +127,26 @@ public:
 				ImGui::Text("Duty Cycle");
 				ImGui::TableNextColumn();
 				ImGui::SetNextItemWidth(inpWidth);
-				changed |= ImGui::DragInt(("##dc_control_" + label).c_str(), &dutycycle, 1, 1,
-				    100, "%d", ImGuiSliderFlags_AlwaysClamp);
+				if (ImGui::DragInt(("##dc_control_" + label).c_str(), &dutycycle, 1, 1,
+					100, "%d", ImGuiSliderFlags_AlwaysClamp))
+				{
+					changed = true;
+					int period = constants::PREVIEW_RES;
+					for (int i = 0; i < constants::PREVIEW_RES; i++)
+					{
+						preview[i] = (float)i / period < dutycycle * 0.01 ? 1.0 : -1.0;
+					}
+					preview[period] = preview[0];
+				}
 				ImGui::SameLine();
 				ImGui::Text("%%");
+				
 			}
 
 			ImGui::EndTable();
 		}
 		return changed;
 	}
-	
-	virtual void renderAnnotations() = 0;
 
 	/// <summary>
 	/// Set the Signal Generator on the labrador board.
@@ -145,7 +172,7 @@ private:
 
 protected:
 	std::string label;
-	const float* preview;
+	float* preview;
 	SIValue amplitude;
 	SIValue frequency;
 	SIValue offset;
@@ -164,32 +191,6 @@ public:
 	    : GenericSignal(label, constants::sine_preview)
 	{}
 
-	/// <summary>
-	/// Render annotations on preview
-	/// </summary>
-	void renderAnnotations() override
-	{
-		float period = constants::PREVIEW_RES;
-		float plt_amp = 1.0f;
-
-		float amp_label_x[2] = { period / 4, period / 4 };
-		float amp_label_y[2] = { plt_amp, -plt_amp };
-
-		ImPlot::PlotLine(("##" + label + "_amp").c_str(), amp_label_x, amp_label_y, 2);
-		ImPlot::PlotScatter(("##" + label + "_amp_pnt").c_str(), amp_label_x, amp_label_y, 2);
-		// Annotate amplitude
-		ImPlot::Annotation(period / 4, 0, ImVec4(0, 0, 0, 0), ImVec2(10, 5), true,
-		    "A = %.2f V", amplitude.getValue());
-
-		float per_label_x[2] = { 0, period };
-		float per_label_y[2] = { 0.0f, 0.0f };
-
-		ImPlot::PlotLine(("##" + label + "_per").c_str(), per_label_x, per_label_y, 2);
-		ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
-		// Annotate frequency
-		ImPlot::Annotation(3 * period / 4, 0, ImVec4(0, 0, 0, 0), ImVec2(0, -5), true,
-		    "T = %.2E s", 1/frequency.getValue());
-	}
 	/// <summary>
 	/// Set the Signal Generator on the labrador board.
 	/// </summary>
@@ -210,31 +211,6 @@ public:
 	    : GenericSignal(label, constants::square_preview)
 	{
 	}
-
-	void renderAnnotations() override
-	{
-		float period = constants::PREVIEW_RES;
-		float plt_amp = 1.0f;
-
-		float amp_label_x[2] = { 3*period / 4, 3*period / 4 };
-		float amp_label_y[2] = { plt_amp, 0.0f };
-
-		ImPlot::PlotLine(("##" + label + "_amp").c_str(), amp_label_x, amp_label_y, 2);
-		ImPlot::PlotScatter(("##" + label + "_amp_pnt").c_str(), amp_label_x, amp_label_y, 2);
-		// Annotate amplitude
-		ImPlot::Annotation(amp_label_x[0], 0, ImVec4(0, 0, 0, 0), ImVec2(0, 5), true,
-		    "A = %.2f V", amplitude.getValue());
-
-		float per_label_x[2] = { 0, period };
-		float per_label_y[2] = { 0.0f, 0.0f };
-
-		ImPlot::PlotLine(("##" + label + "_per").c_str(), per_label_x, per_label_y, 2);
-		ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
-		// Annotate amplitude
-		ImPlot::Annotation(period / 4, 0, ImVec4(0, 0, 0, 0), ImVec2(0, -5), true,
-		    "T = %.2E s", 1 / frequency.getValue());
-	}
-
 
 	/// <summary>
 	/// Set the Signal Generator on the labrador board.
@@ -309,36 +285,11 @@ public:
 	{
 	}
 
-	void renderAnnotations() override
-	{
-		float period = constants::PREVIEW_RES;
-		float plt_amp = 1.0f;
-
-		float amp_label_x[2] = { period / 2, period / 2 };
-		float amp_label_y[2] = { plt_amp, 0.0f };
-
-		ImPlot::PlotLine(("##" + label + "_amp").c_str(), amp_label_x, amp_label_y, 2);
-		ImPlot::PlotScatter(("##" + label + "_amp_pnt").c_str(), amp_label_x, amp_label_y, 2);
-		// Annotate amplitude
-		ImPlot::Annotation(3 * period/4, plt_amp/2, ImVec4(0, 0, 0, 0), ImVec2(0, 0), true,
-		    "A = %.2f V", amplitude.getValue());
-
-		float per_label_x[2] = { 0, period };
-		float per_label_y[2] = { 0.0f, 0.0f };
-
-		ImPlot::PlotLine(("##" + label + "_per").c_str(), per_label_x, per_label_y, 2);
-		ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
-		// Annotate amplitude
-		ImPlot::Annotation(period / 4, 0, ImVec4(0, 0, 0, 0), ImVec2(0, 5), true,
-		    "T = %.2E s", 1 / frequency.getValue());
-	}
-
 	/// <summary>
 	/// Set the Signal Generator on the labrador board.
 	/// </summary>
 	void controlLab(int channel) override
 	{
-		// TODO: convert to correct units
 		librador_send_sawtooth_wave(
 		    channel, frequency.getValue(), amplitude.getValue(), offset.getValue());
 	}
@@ -352,30 +303,6 @@ public:
 	TriangleSignal(const std::string& label)
 	    : GenericSignal(label, constants::triangle_preview)
 	{
-	}
-
-	void renderAnnotations() override
-	{
-		float period = constants::PREVIEW_RES;
-		float plt_amp = 1.0f;
-
-		float amp_label_x[2] = { period / 2, period / 2 };
-		float amp_label_y[2] = { plt_amp, 0.0f };
-
-		ImPlot::PlotLine(("##" + label + "_amp").c_str(), amp_label_x, amp_label_y, 2);
-		ImPlot::PlotScatter(("##" + label + "_amp_pnt").c_str(), amp_label_x, amp_label_y, 2);
-		// Annotate amplitude
-		ImPlot::Annotation(amp_label_x[0], 0, ImVec4(0, 0, 0, 0), ImVec2(0, 5), true,
-		    "A = %.2f V", amplitude.getValue());
-
-		float per_label_x[2] = { 0, period };
-		float per_label_y[2] = { -amplitude.getValue(), -amplitude.getValue() };
-
-		ImPlot::PlotLine(("##" + label + "_per").c_str(), per_label_x, per_label_y, 2);
-		ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
-		// Annotate amplitude
-		ImPlot::Annotation(period / 2, 0, ImVec4(0, 0, 0, 0), ImVec2(0, -5), true,
-		    "T = %.2E s", 1 / frequency.getValue());
 	}
 
 	/// <summary>
