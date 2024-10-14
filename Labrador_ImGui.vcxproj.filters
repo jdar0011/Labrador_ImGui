@@ -50,9 +50,6 @@
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\util.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="libs\librador\librador.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -62,6 +59,7 @@
     <ClCompile Include="libs\librador\usbcallhandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="backends\imgui_impl_glfw.h">
@@ -127,9 +125,6 @@
     <ClInclude Include="misc\single_file\imgui_single_file.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\util.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\UIComponents.hpp" />
     <ClInclude Include="src\SGControl.hpp" />
     <ClInclude Include="src\PSUControl.hpp" />
@@ -142,8 +137,15 @@
     <ClInclude Include="src\CursorProperties.hpp" />
     <ClInclude Include="src\App.hpp" />
     <ClInclude Include="src\SignalType.hpp" />
+    <ClInclude Include="src\util.h" />
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Labrador_ImGui.rc" />
   </ItemGroup>
 </Project>

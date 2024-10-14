@@ -1,4 +1,4 @@
-# About
+﻿# About
 
 - This application is a control interface for the [Espotek Labrador Portable Lab Bench](https://espotek.com/labrador/)
 - The primary goals of the design it to be student friendly and accessible, meaning that advanced features are not present
@@ -80,19 +80,22 @@ For each channel (Channel 1 and Channel 2):
 
 #### Controls
 
-- **Panning**: Click and drag to pan anywhere on the plot. Click and drag on any axis to pan in one direction.
-- **Zooming**: Scroll to zoom anywhere on the plot. Scroll on any axis to zoom on solely on that axis.
-
+- **Panning**:
+  - Click and drag on the plot window to pan in any direction
+  - Click and drag on an axis to pan in only that direction
+- **Zooming**: 
+  - Scroll to zoom anywhere on the plot
+  - Scroll on an axis to zoom only on that axis
 
 #### Measurments
 
 - **Cursors**:
-  - Activate cursors in Plot Settings or by right clicking inside the plot window and selecting desired cursors
+  - Activate cursors in Plot Settings
   - Measurements between the two cursors are displayed below the plot when they are both activated
   - Use these to measure the frequency/amplitude of displayed waveforms
 - **Signal Properties**
   - Signal properties are calculated based on the plot window data
-  - dT values represent an average time between trigger events (see more info in Plot Settings)
-  - dV values represent the difference between Vmin and Vmax
+  - ∆T values represent an average time between trigger events (see more info in Plot Settings)
+  - ∆V values represent the difference between Vmin and Vmax
 
 ### End
