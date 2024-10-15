@@ -201,7 +201,7 @@ public:
 				ImGui::TableNextColumn();
 				ImGui::Text("Cursor properties:");
 				ImGui::TableNextColumn();
-				ImGui::Text(u8"\u2206T = %.2f s", cursor2_x - cursor1_x);
+				ImGui::Text(u8"\u2206T = %.2f ms", (cursor2_x - cursor1_x)*1000);
 				ImGui::TableNextColumn();
 				ImGui::Text(u8"1/\u2206T = %.2f Hz", 1 / (cursor2_x - cursor1_x));
 				ImGui::TableNextColumn();

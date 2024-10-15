@@ -29,52 +29,54 @@
 
 #### Controls
 - **Power button**: Turns the signal generator on or off.
-- **Voltage control**: Adjusts the output voltage level.
 - **Waveform selection**: Chooses the type of waveform output.
 - **Frequency slider**: Sets the frequency of the signal.
-- **Amplitude slider**: Modifies the amplitude of the waveform.
-- **Phase slider**: Shifts the waveform in the time domain.
-- **Offset slider**: Shifts the waveform's voltage level.
+- **Vpeak-peak slider**: Modifies the peak to peak amplitude of the waveform.
+- **Offset slider**: Shifts the waveform's base voltage level
+- **Duty Cycle slider**: Defines the percentage that the waveform is "on" (square wave only)
 
 #### Specifications
-- **Voltage Range**: 0.15 V - 9.5 V
+- **Voltage Range**: 
+  - 0.15 V to 9.5 V (DC Coupled)
+  - -4.5 V to 4.5 V (AC Coupled)
 - **Maximum Current**: 10 mA
 - **Sample Rate**: 1 Msps
+
+#### Additional Information
+- **DC Coupled Pins**: Replicates the properties set in the application.
+- **AC Coupled Pins**: No DC component meaning the offset set in the application may not have the desired effect. Use the DC Oscilloscope Pins to observe this effect in action! 
 
 ### Plot Settings
 
 #### Main Controls
 
 - **Run / Stop**: Starts or stops the signal acquisition and display.
-- **Single**: Captures a single trigger event and then stops.
-- **Auto**: Automatically adjusts settings for optimal waveform display.
-- **Capture**: Export a png image of the current waveform.
+- **Auto Fits**: Sets zoom of plot to appropriate scale, based on calculated period for time axis or Vpp for voltage axis.
 
-#### Channels
+#### Display
 
-For each channel (Channel 1 and Channel 2):
-
-- **Display**: Toggles visibility of the channel (ON/OFF)
-- **Time Scale**: Adjusts horizontal time per division (in ms)
-- **Voltage Scale**: Sets vertical voltage per division (in ms)
-- **Offset**: Shifts the waveform vertically (in ms)
-
-**Equalise**: When checked, synchronizes settings across both channels
+- **Channel Switches**: Enables/disables respective channel reading and display.
+- **Cursors**: Enables/disables measurement cursors. Both cursors must be active to display delta information under plot window.
+- **Signal Properties**: Enables/disables signal property calculations displayed under plot window.
 
 #### General Settings
 
-- **Cursor 1 & 2**: Enables/disables measurement cursors
 - **Trigger**:
   - Aligns a 'trigger' event with the left most point in the plot window (e.g. OSC1 Rising)
-  - **Level**: Sets the voltage level for triggering (in mV)
-- **Signal Properties**: Shows detailed signal information when ON
-- **Plot Properties**: Displays graph details when ON
-- **Capture to**: Selects destination for captured data (e.g. Clipboard)
+  - **Level**: Sets the voltage level for triggering
+- **Export**
+  - To clipboard: Copies current data in time window to clipboard, can be easily pasted into Excel.
+  - To CSV: Saves current data in time window to selected directory. Press Export button to choose directory.
 
 #### Specifications
 
-- **Sample Rate** 750 ksps
-- **Input Voltage Range** -20 V to +20 V
+- **Sample Rate**: 750 ksps
+- **Input Voltage Range**: -20 V to +20 V
+
+#### Additional Information
+
+- DC Coupled pins will read the raw voltages without filtering anything.
+- AC Coupled pins filter out the very low frequency components (DC components) to display only AC signals
 
 ### Plot Window
 
