@@ -242,7 +242,7 @@ class AppBase
 
             glfwSwapBuffers(window);
 
-            flashFirmware();
+            
 
         }
 

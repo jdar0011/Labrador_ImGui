@@ -16,19 +16,17 @@
 #include <chrono>
 #include <thread>
 #ifdef NDEBUG
-#include "AtlBase.h"
-#include "AtlConv.h"
+#include <Windows.h>
 int windows_system(const char* cmd) {
 	PROCESS_INFORMATION p_info;
 	STARTUPINFO s_info;
 	DWORD ReturnValue = NULL;
-	CA2T programpath(cmd);
 
 	memset(&s_info, 0, sizeof(s_info));
 	memset(&p_info, 0, sizeof(p_info));
 	s_info.cb = sizeof(s_info);
 
-	if (CreateProcess(NULL,programpath, NULL, NULL, 0, CREATE_NO_WINDOW, NULL, NULL, &s_info, &p_info)) {
+	if (CreateProcess(NULL,(LPSTR)cmd, NULL, NULL, 0, CREATE_NO_WINDOW, NULL, NULL, &s_info, &p_info)) {
 		WaitForSingleObject(p_info.hProcess, INFINITE);
 		GetExitCodeProcess(p_info.hProcess, &ReturnValue);
 		CloseHandle(p_info.hProcess);
@@ -191,6 +189,10 @@ class App : public AppBase<App>
 					{
 						ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
 						TextRight("Incorrect Firmware Variant Detected! Flashing Correct Firmware, Please Wait...");
+						if (frames > 1)
+						{
+							flashFirmware();
+						}
 						ImGui::PopStyleColor();
 					}
 					else
@@ -441,8 +443,9 @@ class App : public AppBase<App>
 	{
 		// Flash Firmware Variant 2 if it is not currently flashed
 		uint8_t deviceVariant = librador_get_device_firmware_variant();
-		if (deviceVariant != 2 && frames % 60 == 1)
+		if (deviceVariant != 2 && connected && frames % labRefreshRate == 1)
 		{
+			printf("deviceVariant: %hhu", librador_get_device_firmware_variant());
 			librador_jump_to_bootloader();
 #ifdef NDEBUG
 			std::filesystem::current_path("./firmware");
@@ -471,7 +474,7 @@ class App : public AppBase<App>
   private:
 	int frames = 0;
 	const int labRefreshRate = 60; // send controls to labrador every this many frames
-	bool connected = true; // state of labrador connection
+	bool connected = false; // state of labrador connection
 	// Define default configurations for widgets here
 	PSUControl PSUWidget = PSUControl("Power Supply Unit (PSU)", ImVec2(0,0), constants::PSU_ACCENT);
 	//MultimeterControl MMWidget
