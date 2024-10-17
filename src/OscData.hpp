@@ -56,8 +56,9 @@ public:
 		if (!paused)
 		{
 			double sample_rate_hz = CalculateSampleRate();
+			double ext_time_window = time_window + trigger_timeout > 60 ? 60.0 : time_window + trigger_timeout;
 			std::vector<double>* extended_data_ptr = librador_get_analog_data(channel,
-			    time_window + trigger_timeout, sample_rate_hz, delay_s, filter_mode);
+				ext_time_window, sample_rate_hz, delay_s, filter_mode);
 			if (extended_data_ptr)
 			{
 				extended_data = *extended_data_ptr;
@@ -265,9 +266,16 @@ public:
 		// apply total variation denoising (TVD) to denoise the signal
 		double lambda = 0.1;
 		std::vector<double> denoised_signal = tv_denoise(periodic_data, lambda);
-		double max = *std::max_element(denoised_signal.begin(), denoised_signal.end());
-		double min = *std::min_element(denoised_signal.begin(), denoised_signal.end());
-		return max - min;
+		if (denoised_signal.size() > 0)
+		{
+			double max = *std::max_element(denoised_signal.begin(), denoised_signal.end());
+			double min = *std::min_element(denoised_signal.begin(), denoised_signal.end());
+			return max - min;
+		}
+		else
+		{
+			return 0;
+		}
 
 	}
 	/// <summary>

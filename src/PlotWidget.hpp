@@ -62,6 +62,12 @@ public:
 		UpdateOscData();
 		std::vector<double> analog_data_osc1 = OSC1Data.GetData();
 		std::vector<double> analog_data_osc2 = OSC2Data.GetData();
+		
+		// TODO: This seems to work ok if we want the most recent data at 0 seconds (i think that is more intuitive)
+		// There is probably a more efficient way of doing this i'm sure
+		//std::reverse(analog_data_osc1.begin(), analog_data_osc1.end());
+		//std::reverse(analog_data_osc2.begin(), analog_data_osc2.end());
+		
 		ImPlot::SetNextAxesLimits(init_time_range_lower, init_time_range_upper,
 		    init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Once);
 		if (ImPlot::BeginPlot("##Oscilloscopes", plot_size, ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus))

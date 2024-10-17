@@ -17,6 +17,14 @@
 
 # User Documentation
 
+### Troubleshooting
+
+#### Safety Mode
+
+- Safety Mode is indicated by the Labrador Board's LED flashing every 400 ms
+- This will align with short blips on the Oscilloscope reading surrounded by null readings
+- Fix this by unplugging the board for 30 seconds before plugging it back in
+
 ### Power Supply Unit (PSU)
 
 #### Controls

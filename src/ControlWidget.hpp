@@ -262,3 +262,25 @@ private:
 	intptr_t pinout_texture;
 	int pinout_width, pinout_height;
 };
+
+/// <summary>
+/// Purely documentation, eg. TroubleShooting
+/// Hacky solution, probably need to make Help parsing external to ControlWidget
+/// </summary>
+class HelpWidget : public ControlWidget
+{
+public:
+
+	HelpWidget(std::string label)
+		: ControlWidget(label, ImVec2(0, 0), NULL)
+	{}
+
+	void renderControl() override
+	{
+		return;
+	}
+	bool controlLab() override
+	{
+		return false;
+	}
+};

@@ -380,6 +380,13 @@ class App : public AppBase<App>
 				ImGui::End();
 			}
 		}
+		// Output framerate for performance metric
+//		if (frames % 30 == 0)
+//		{
+//#ifndef NDEBUG
+//			std::cout << ImGui::GetIO().Framerate << ',';
+//#endif	
+//		}
 		frames++;
     }
 
@@ -553,7 +560,8 @@ class App : public AppBase<App>
 	    = OSCControl("Plot Settings", ImVec2(0, 0), constants::OSC_ACCENT);
 	PlotWidget PlotWidgetObj 
 		= PlotWidget("Plot Window",ImVec2(0, 0),&OSCWidget);
-	ControlWidget* widgets[5]
-	    = { &PSUWidget, &SG1Widget, &SG2Widget, &OSCWidget, &PlotWidgetObj };
+	HelpWidget TroubleShoot = HelpWidget("Troubleshooting");
+	ControlWidget* widgets[6]
+	    = { &TroubleShoot, &PSUWidget, &SG1Widget, &SG2Widget, &OSCWidget, &PlotWidgetObj };
 };
 
