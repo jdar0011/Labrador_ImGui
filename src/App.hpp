@@ -52,7 +52,7 @@ class App : public AppBase<App>
     App(){};
     virtual ~App() = default;
 
-	void connectToLabrador()
+	void connectToLabrador(bool * flash_firmware_popup)
 	{
 		// Initialise the USB
 		int error = librador_setup_usb();
@@ -75,6 +75,8 @@ class App : public AppBase<App>
 			// Print firmware info
 			uint16_t deviceVersion = librador_get_device_firmware_version();
 			uint8_t deviceVariant = librador_get_device_firmware_variant();
+
+			*flash_firmware_popup = deviceVariant != 2;
 #ifndef NDEBUG
 			printf("deviceVersion=%hu, deviceVariant=%hhu\n", deviceVersion, deviceVariant);
 #endif
@@ -101,8 +103,6 @@ class App : public AppBase<App>
 			// std::exit(error);
 			connected = false;
 		}
-
-		connectToLabrador();
 
 		// Load pinout images
 		GLuint psu_tmp_texture = 0;
@@ -152,12 +152,22 @@ class App : public AppBase<App>
 
 			ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
+			
+
 			// Menu Bar
 			static bool showDemoWindows = false;
 			static bool showHelpWindow = false;
+			static bool flash_firmware_popup = false;
+			if (frames == 0) connectToLabrador(&flash_firmware_popup);
+			if (flash_firmware_next_frame)
+			{
+				flashFirmware();
+				connectToLabrador(&flash_firmware_popup);
+				flash_firmware_popup = true; // keep the window open to display success
+				flash_firmware_next_frame = false;
+			}
 			if (ImGui::BeginMenuBar())
 			{
-				// Demo windows for styling/docs [TODO: REMOVE in finished product]
 
 				// Device
 				if (ImGui::BeginMenu("Device"))
@@ -174,6 +184,7 @@ class App : public AppBase<App>
 					{
 						ImGui::TextColored(constants::GRAY_TEXT, "No Labrador board detected");
 					}
+					ImGui::MenuItem("Check firmware", NULL, &flash_firmware_popup);
 					ImGui::EndMenu();
 				}
 				if (ImGui::BeginMenu("Help"))
@@ -184,21 +195,20 @@ class App : public AppBase<App>
 
 				if (connected)
 				{
-					uint8_t deviceVariant = librador_get_device_firmware_variant();
-					if (deviceVariant != 2)
-					{
-						ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
-						TextRight("Incorrect Firmware Variant Detected! Flashing Correct Firmware, Please Wait...");
-						if (frames > 1)
-						{
-							flashFirmware();
-						}
-						ImGui::PopStyleColor();
-					}
-					else
-					{
-						TextRight("Labrador Connected     ");
-					}
+					//uint8_t deviceVariant = librador_get_device_firmware_variant();
+					//if (deviceVariant != 2)
+					//{
+					//	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+					//	TextRight("Incorrect Firmware Variant Detected! Flashing Correct Firmware, Please Wait...");
+					//	if (frames > 1)
+					//	{
+					//		// Remove for now
+					//		// Thinking we have a popup confirming if the user wants to flash firmware in connectToLabrador
+					//		// flashFirmware();
+					//	}
+					//	ImGui::PopStyleColor();
+					//}
+					TextRight("Labrador Connected     ");
 				}
 				else
 				{
@@ -208,20 +218,19 @@ class App : public AppBase<App>
 					{
 #ifndef NDEBUG
 						std::cout << "Attempting to connect to Labrador\n";
-#endif
-						connectToLabrador();
+#endif					
+						bool tmp = flash_firmware_popup;
+						connectToLabrador(&flash_firmware_popup);
+						if (tmp) flash_firmware_popup = true; // persistent display if it was open
 					}
 				}
-				uint8_t deviceVariant = librador_get_device_firmware_variant();
-				if (!(deviceVariant != 2 && connected))
-				{
-					const float radius = ImGui::GetTextLineHeight() * 0.4;
-					const ImU32 status_colour = ImGui::GetColorU32(
-						connected ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
-					const ImVec2 p1 = ImGui::GetCursorScreenPos();
-					draw_list->AddCircleFilled(
-						ImVec2(p1.x - 10, p1.y + ImGui::GetTextLineHeight() - radius), radius, status_colour);
-				}
+				// uint8_t deviceVariant = librador_get_device_firmware_variant();
+				const ImU32 status_colour = ImGui::GetColorU32(
+				connected ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
+				const float radius = ImGui::GetTextLineHeight() * 0.4;
+				const ImVec2 p1 = ImGui::GetCursorScreenPos();
+				draw_list->AddCircleFilled(
+					ImVec2(p1.x - 10, p1.y + ImGui::GetTextLineHeight() - radius), radius, status_colour);
 				 
 				ImGui::EndMenuBar();
 				
@@ -287,17 +296,22 @@ class App : public AppBase<App>
 			// Updates state of labrador to match widgets
 			if (connected)
 			{
-				// Call controlLab functions for each widget
-				if (frames % labRefreshRate == 0)
+				// Check connection status
+				connected = librador_get_device_firmware_variant() != 179; // disconnected status (not tested on other boards so may not work)
+				if (!connected) librador_reset_usb();
+				else
 				{
-					// Check board status by setting PSU Widget
-					connected = PSUWidget.controlLab();
-					if (!connected) librador_reset_usb();
-				}
+					// Call controlLab functions for each widget
+					if (frames % labRefreshRate == 0)
+					{
+						PSUWidget.controlLab();
+					}
 
-				// Signal generators update on change
-				SG1Widget.controlLab();
-				SG2Widget.controlLab();
+					// Signal generators update on change
+					SG1Widget.controlLab();
+					SG2Widget.controlLab();
+				}
+				
 			}
 
 			if (showDemoWindows)
@@ -312,6 +326,58 @@ class App : public AppBase<App>
 			for (ControlWidget* w : widgets)
 			{
 				if (w->show_help) w->renderHelp();
+			}
+
+			if (flash_firmware_popup)
+			{
+				// Show firmware check window
+				uint8_t deviceVariant = librador_get_device_firmware_variant();
+				float row_height = ImGui::GetFrameHeight();
+				ImGui::SetNextWindowSize(ImVec2(450, row_height * 7));
+				ImGui::PushStyleColor(ImGuiCol_TitleBgActive, (connected && deviceVariant == 2) ? ImVec4(0, 0.55, 0, 1) : ImVec4(0.8, 0, 0, 1));
+				ImGui::Begin("Flash Firmware");
+				if (!ImGui::IsWindowFocused())
+				{
+					flash_firmware_popup = false;
+				}
+				else
+				{
+					if (connected && deviceVariant != 2)
+					{
+						ImGui::TextWrapped("Device detected with invalid firmware variant!");
+						ImGui::TextWrapped("Would you like to flash required firmware variant 2.0?");
+						if (ImGui::Button(" Yes "))
+						{
+							ImGui::TextColored(ImVec4(1, 0, 0, 1), "Flashing variant 2.0... This takes 5 seconds.");
+							flash_firmware_next_frame = true;
+						}
+						ImGui::SameLine();
+						if (ImGui::Button(" Cancel "))
+						{
+							flash_firmware_popup = false;
+						}
+
+					}
+					else if (connected && deviceVariant == 2)
+					{
+						
+						ImGui::TextWrapped("Device detected with valid firmware variant (2.0)");
+						if (ImGui::Button(" OK "))
+						{
+							flash_firmware_popup = false;
+						}
+					}
+					else if (!connected)
+					{
+						ImGui::TextWrapped("No device detected.");
+						if (ImGui::Button(" OK "))
+						{
+							flash_firmware_popup = false;
+						}
+					}
+				}
+				ImGui::PopStyleColor();
+				ImGui::End();
 			}
 		}
 		frames++;
@@ -443,11 +509,11 @@ class App : public AppBase<App>
 	{
 		// Flash Firmware Variant 2 if it is not currently flashed
 		uint8_t deviceVariant = librador_get_device_firmware_variant();
-		if (deviceVariant != 2 && connected && frames % labRefreshRate == 1)
+		if (deviceVariant != 2 && connected)
 		{
-			printf("deviceVariant: %hhu", librador_get_device_firmware_variant());
 			librador_jump_to_bootloader();
 #ifdef NDEBUG
+			printf("deviceVariant: %hhu", librador_get_device_firmware_variant());
 			std::filesystem::current_path("./firmware");
 			std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 			windows_system("dfu-programmer atxmega32a4u erase --force");
@@ -467,7 +533,6 @@ class App : public AppBase<App>
 			std::filesystem::current_path("..");
 #endif
 			librador_reset_usb();
-			connectToLabrador();
 		}
 	}
 
@@ -475,6 +540,7 @@ class App : public AppBase<App>
 	int frames = 0;
 	const int labRefreshRate = 60; // send controls to labrador every this many frames
 	bool connected = false; // state of labrador connection
+	bool flash_firmware_next_frame = false;
 	// Define default configurations for widgets here
 	PSUControl PSUWidget = PSUControl("Power Supply Unit (PSU)", ImVec2(0,0), constants::PSU_ACCENT);
 	//MultimeterControl MMWidget

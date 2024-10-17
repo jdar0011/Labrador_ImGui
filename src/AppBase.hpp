@@ -242,8 +242,6 @@ class AppBase
 
             glfwSwapBuffers(window);
 
-            
-
         }
 
         ShutDown();
@@ -263,10 +261,6 @@ class AppBase
 	{
 		static_cast<Derived*>(this)->ShutDown();
 	}
-    void flashFirmware()
-    {
-        static_cast<Derived*>(this)->flashFirmware();
-    }
 
   private:
     GLFWwindow* window = nullptr;
