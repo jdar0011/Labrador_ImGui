@@ -63,11 +63,6 @@ public:
 		std::vector<double> analog_data_osc1 = OSC1Data.GetData();
 		std::vector<double> analog_data_osc2 = OSC2Data.GetData();
 		
-		// TODO: This seems to work ok if we want the most recent data at 0 seconds (i think that is more intuitive)
-		// There is probably a more efficient way of doing this i'm sure
-		//std::reverse(analog_data_osc1.begin(), analog_data_osc1.end());
-		//std::reverse(analog_data_osc2.begin(), analog_data_osc2.end());
-		
 		ImPlot::SetNextAxesLimits(init_time_range_lower, init_time_range_upper,
 		    init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Once);
 		if (ImPlot::BeginPlot("##Oscilloscopes", plot_size, ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus))
@@ -231,7 +226,6 @@ public:
 	void writeSignalProps(OscData data, ImVec4 col)
 	{
 		double T = data.GetPeriod();
-		//double Vpp = data.GetDataMax() - data.GetDataMin();
 		double Vpp = data.GetVpp();
 		
 
@@ -278,7 +272,7 @@ public:
 		ImPlot::DragPoint(id, cx, cy, ImVec4(1, 1, 1, 1), 8.0f);
 		char cursor_label[20];
 		std::string label = std::to_string(id) + ":";
-		// Label is in (ms, V) - TODO: change axis to ms instead of seconds
+		// Label is in (ms, V)
 		sprintf(cursor_label, (label + "(%.2f, %.2f)").c_str(), *cx, *cy);
 		ImPlot::PlotText(cursor_label, *cx, *cy, ImVec2(50, -12));
 		ImPlot::SetNextLineStyle(ImVec4(1, 1, 1, 0.8));
@@ -463,9 +457,6 @@ public:
 		int gainUpdate2 = 1;
 
 		// Check whether gain needs to increase or decrease
-		// gainUpdate = -1 : OSC Data is out of range provided by current gain (clipping) - zoom out
-		// gainUpdate =  0 : OSC Data is in range provided by gain - no change
-		// gainUpdate = +1 : OSC Data is in range provided by larger gain - zoom in
 		if (osc_control->DisplayCheckOSC1)
 		{
 			gainUpdate1 = GetChangeToGain(OSC1Data.GetMiniBuffer());
@@ -566,7 +557,6 @@ private:
 	}
 
 protected:
-	const char* label;
 	ImVec2 size;
 	bool paused = false;
 	double init_time_range_lower = 0;

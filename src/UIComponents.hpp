@@ -1,70 +1,9 @@
 #ifndef _UI_H_
 #define _UI_H_
 
-
 #include "imgui.h"
 #include "util.h"
 #include <iostream>
-
-
-bool inline PauseButton(const char* id, float radius, bool* state)
-{
-	ImU32 accentColour = IM_COL32(240,240,240, 255);
-	ImU32 pp_col = IM_COL32(0, 0, 0, 255);
-
-	ImVec2 p = ImGui::GetCursorScreenPos();
-	ImDrawList* draw_list = ImGui::GetWindowDrawList();
-	bool switched = false;
-	ImGui::SetCursorPos(
-	    ImVec2(ImGui::GetCursorPosX() - radius, ImGui::GetCursorPosY() - radius));
-	if (ImGui::InvisibleButton(id, ImVec2(radius*2,radius*2)))
-	{
-		*state = !*state;
-		switched = true;
-	}
-	ImColor im_col_bg = ImColor(accentColour);
-	ImColor im_pp_col = ImColor(pp_col);
-	float mul = 1.0;
-	if (ImGui::IsItemActive())
-	{
-		mul = 4.0/5;
-	}
-	else if (ImGui::IsItemHovered())
-	{
-		mul = 5.0/4;
-	}
-	im_col_bg.Value.x = mul * im_col_bg.Value.x > 1 ? 1 : mul * im_col_bg.Value.x;
-	im_col_bg.Value.y = mul * im_col_bg.Value.y > 1 ? 1 : mul * im_col_bg.Value.y;
-	im_col_bg.Value.z = mul * im_col_bg.Value.z > 1 ? 1 : mul * im_col_bg.Value.z;
-	/*im_pp_col.Value.x = mul * im_pp_col.Value.x > 1 ? 1 : mul * im_pp_col.Value.x;
-	im_pp_col.Value.y = mul * im_pp_col.Value.y > 1 ? 1 : mul * im_pp_col.Value.y;
-	im_pp_col.Value.z = mul * im_pp_col.Value.z > 1 ? 1 : mul * im_pp_col.Value.z;*/
-	ImU32 col_bg = ImU32(im_col_bg);
-	pp_col = ImU32(im_pp_col);
-
-	draw_list->AddCircleFilled(ImVec2(p.x,p.y), radius, col_bg);
-
-	if (*state)
-	{
-		float left_offset_x = 3;
-		float right_offset_x = 7;
-		float offset_y = 7;
-		draw_list->AddTriangleFilled(ImVec2(p.x - left_offset_x, p.y - offset_y), ImVec2(p.x - left_offset_x, p.y + offset_y),
-		    ImVec2(p.x + offset_y, p.y), pp_col);
-	}
-	else
-	{
-		float offset_x = 5;
-		float twix_width = 4;
-		float offset_y = 7;
-		draw_list->AddRectFilled(ImVec2(p.x - offset_x, p.y - offset_y),
-		    ImVec2(p.x - offset_x + twix_width, p.y + offset_y), pp_col);
-		draw_list->AddRectFilled(ImVec2(p.x + offset_x-twix_width, p.y - offset_y),
-		    ImVec2(p.x + offset_x, p.y + offset_y), pp_col);
-	}
-
-	return switched;
-}
 
 /// <summary>
 /// Adapted from https://github.com/ocornut/imgui/issues/1537#issuecomment-355562097
@@ -231,6 +170,17 @@ void inline TextRight(std::string text)
 class SIValue
 {
 public:
+	/// <summary>
+	/// Handle SI Values, eg Voltage values, time values
+	/// </summary>
+	/// <param name="id">Unique id for this value</param>
+	/// <param name="label"></param>
+	/// <param name="default_val">Default state</param>
+	/// <param name="min_val">Minimum bound</param>
+	/// <param name="max_val">Maximum bound</param>
+	/// <param name="symbol">SI Unit Symbol. Eg. V for Volts</param>
+	/// <param name="prefixs">Allowable prefixes eg {"m", "", "k"}</param>
+	/// <param name="format">List of c formatting string eg ".2f" for each prefix<std::string></param>
 	SIValue(std::string id, std::string label, float default_val, float min_val, float max_val, std::string symbol, std::vector<std::string> prefixs,
 	    std::vector<std::string> format)
 	    : id(id)

@@ -23,7 +23,7 @@
       ]]>
     </CustomAction>
 
-    <Icon Id="icon.ico" SourceFile="../ApplicationFolderFiles/misc/media/icon.ico" />
+    <Icon Id="icon.ico" SourceFile="../../misc/media/icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="icon.ico" />
 
     <InstallExecuteSequence>
@@ -55,55 +55,55 @@
 	<Fragment>
 		<ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
 			<Component Id="MainExecutable" Guid="83B3D15B-4FD1-4373-99AA-0D316A7481D8" Win64="yes">
-        <File Id="Labrador_Controller.exe" Source="../ApplicationFolderFiles/Labrador_Controller.exe" KeyPath="yes"/>
-        <File Source="../ApplicationFolderFiles/libfftw3-3.dll"/>
-        <File Source="../ApplicationFolderFiles/libusb-1.0.dll"/>
-        <File Source="../ApplicationFolderFiles/README.md"/>
+        <File Id="Labrador_Controller.exe" Source="../../x64/Release/Labrador_Controller.exe" KeyPath="yes"/>
+        <File Source="../../x64/Release/libfftw3-3.dll"/>
+        <File Source="../../x64/Release/libusb-1.0.dll"/>
+        <File Source="../../README.md"/>
 			</Component>
     </ComponentGroup>
     <ComponentGroup Id="FirmwareComponents" Directory="firmware">
       <Component Id="firmwareFiles" Guid="967E8B49-351E-4716-8EB5-9A60756D4035"  Win64="yes">
-        <File Source="../ApplicationFolderFiles/firmware/dfu-programmer.exe"/>
-        <File Source="../ApplicationFolderFiles/firmware/flash.bat"/>
-        <File Source="../ApplicationFolderFiles/firmware/wipe.bat"/>
-        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0001_01.hex"/>
-        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0003_01.hex"/>
-        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0003_02.hex"/>
-        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0004_01.hex"/>
-        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0004_02.hex"/>
-        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0005_01.hex"/>
-        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0005_02.hex"/>
-        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0006_01.hex"/>
-        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0006_02.hex"/>
-        <File Source="../ApplicationFolderFiles/firmware/RESET_TO_LC_FIRMWARE.bat"/>
+        <File Source="../../firmware/dfu-programmer.exe"/>
+        <File Source="../../firmware/flash.bat"/>
+        <File Source="../../firmware/wipe.bat"/>
+        <File Source="../../firmware/labrafirm_0001_01.hex"/>
+        <File Source="../../firmware/labrafirm_0003_01.hex"/>
+        <File Source="../../firmware/labrafirm_0003_02.hex"/>
+        <File Source="../../firmware/labrafirm_0004_01.hex"/>
+        <File Source="../../firmware/labrafirm_0004_02.hex"/>
+        <File Source="../../firmware/labrafirm_0005_01.hex"/>
+        <File Source="../../firmware/labrafirm_0005_02.hex"/>
+        <File Source="../../firmware/labrafirm_0006_01.hex"/>
+        <File Source="../../firmware/labrafirm_0006_02.hex"/>
+        <File Source="../../firmware/RESET_TO_LC_FIRMWARE.bat"/>
       </Component>
     </ComponentGroup>
     <ComponentGroup Id="FontsComponents" Directory="fonts">
       <Component Id="fontsFiles" Guid="0AABC43C-E1AF-4A13-A42C-7D52E6BD6464"  Win64="yes">
-        <File Source="../ApplicationFolderFiles/misc/fonts/arial.ttf"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/arialbd.ttf"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/arialbi.ttf"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/ariali.ttf"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/ARIALN.TTF"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/ARIALNB.TTF"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/ARIALNBI.TTF"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/ARIALNI.TTF"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/ariblk.ttf"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/Cousine-Regular.ttf"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/DroidSans.ttf"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/Karla-Regular.ttf"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/ProggyClean.ttf"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/ProggyTiny.ttf"/>
-        <File Source="../ApplicationFolderFiles/misc/fonts/Roboto-Medium.ttf"/>
+        <File Source="../../misc/fonts/arial.ttf"/>
+        <File Source="../../misc/fonts/arialbd.ttf"/>
+        <File Source="../../misc/fonts/arialbi.ttf"/>
+        <File Source="../../misc/fonts/ariali.ttf"/>
+        <File Source="../../misc/fonts/ARIALN.TTF"/>
+        <File Source="../../misc/fonts/ARIALNB.TTF"/>
+        <File Source="../../misc/fonts/ARIALNBI.TTF"/>
+        <File Source="../../misc/fonts/ARIALNI.TTF"/>
+        <File Source="../../misc/fonts/ariblk.ttf"/>
+        <File Source="../../misc/fonts/Cousine-Regular.ttf"/>
+        <File Source="../../misc/fonts/DroidSans.ttf"/>
+        <File Source="../../misc/fonts/Karla-Regular.ttf"/>
+        <File Source="../../misc/fonts/ProggyClean.ttf"/>
+        <File Source="../../misc/fonts/ProggyTiny.ttf"/>
+        <File Source="../../misc/fonts/Roboto-Medium.ttf"/>
       </Component>
     </ComponentGroup>
     <ComponentGroup Id="MediaComponents" Directory="media">
       <Component Id="mediaFiles" Guid="3534CE09-F618-4172-935C-D4C68B895375"  Win64="yes">
-        <File Source="../ApplicationFolderFiles/misc/media/osc-pinout.png"/>
-        <File Source="../ApplicationFolderFiles/misc/media/psu-pinout.png"/>
-        <File Source="../ApplicationFolderFiles/misc/media/sg-pinout.png"/>
-        <File Source="../ApplicationFolderFiles/misc/media/icon64.png"/>
-        <File Source="../ApplicationFolderFiles/misc/media/icon128.png"/>
+        <File Source="../../misc/media/osc-pinout.png"/>
+        <File Source="../../misc/media/psu-pinout.png"/>
+        <File Source="../../misc/media/sg-pinout.png"/>
+        <File Source="../../misc/media/icon64.png"/>
+        <File Source="../../misc/media/icon128.png"/>
       </Component>
 		</ComponentGroup>
     

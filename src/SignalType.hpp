@@ -219,11 +219,10 @@ public:
 	{
 		librador_imgui_send_square_wave(
 		    channel, frequency.getValue(), amplitude.getValue(), offset.getValue(), dutycycle / 100.0);
-		// librador_send_square_wave(channel, getSIFrequency(), getSIAmp(), getSIOffset());
 	}
 
 
-	// Could be integrated with librador
+	// Custom square function to adjust Duty Cycle. Could be integrated with future version of librador
 	int librador_imgui_send_square_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double duty_cycle = 0.5)
 	{
 		if ((amplitude_v + offset_v) > 9.6)

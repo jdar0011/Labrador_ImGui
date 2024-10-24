@@ -83,8 +83,6 @@ public:
 		// Empty Space
 		ImGui::Dummy(ImVec2(0, 6.0f));
 
-		// ImGui::PopStyleColor();
-
 		WidgetHeight = p2.y - p1.y;
 	}
 
@@ -206,13 +204,6 @@ public:
 	{
 		// Render Help Text from markdown format 
 		// Edit README.md to change help popup content
-
-		// Force center window and size
-		//ImGuiIO& io = ImGui::GetIO();
-		//ImVec2 pos(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
-		//ImGui::SetNextWindowPos(pos, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-		//ImGui::SetNextWindowSize(pos, ImGuiCond_Always);
-
 		if (!ImGui::Begin((help_popup_id).c_str(), &show_help))
 		{
 			ImGui::End();
@@ -231,19 +222,19 @@ public:
 		
 	}
 
-	bool BeginHelpPopup(const char* str_id, ImGuiWindowFlags flags)
-	{
-		
-		ImGuiContext& g = *GImGui;
-		if (g.OpenPopupStack.Size <= g.BeginPopupStack.Size) // Early out for performance
-		{
-			g.NextWindowData.ClearFlags(); // We behave like Begin() and need to consume
-			                               // those values
-			return false;
-		}
-		flags |= ImGuiWindowFlags_NoTitleBar;
-		return ImGui::BeginPopupEx(g.CurrentWindow->GetID(str_id), flags);
-	}
+	//bool BeginHelpPopup(const char* str_id, ImGuiWindowFlags flags)
+	//{
+	//	
+	//	ImGuiContext& g = *GImGui;
+	//	if (g.OpenPopupStack.Size <= g.BeginPopupStack.Size) // Early out for performance
+	//	{
+	//		g.NextWindowData.ClearFlags(); // We behave like Begin() and need to consume
+	//		                               // those values
+	//		return false;
+	//	}
+	//	flags |= ImGuiWindowFlags_NoTitleBar;
+	//	return ImGui::BeginPopupEx(g.CurrentWindow->GetID(str_id), flags);
+	//}
 
 	// Customise for each widget, see PSUControl.hpp for example
 	virtual void renderControl() = 0;

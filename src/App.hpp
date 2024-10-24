@@ -86,7 +86,7 @@ class App : public AppBase<App>
 			SG2Widget.reset();
 		}
 		librador_set_device_mode(2);
-		// need to move this somewhere better if we want to do this dynamically, but
+
 		// cannot run too often as this causes the usb sampling bug
 		librador_set_oscilloscope_gain(16);
 	}
@@ -195,19 +195,6 @@ class App : public AppBase<App>
 
 				if (connected)
 				{
-					//uint8_t deviceVariant = librador_get_device_firmware_variant();
-					//if (deviceVariant != 2)
-					//{
-					//	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
-					//	TextRight("Incorrect Firmware Variant Detected! Flashing Correct Firmware, Please Wait...");
-					//	if (frames > 1)
-					//	{
-					//		// Remove for now
-					//		// Thinking we have a popup confirming if the user wants to flash firmware in connectToLabrador
-					//		// flashFirmware();
-					//	}
-					//	ImGui::PopStyleColor();
-					//}
 					TextRight("Labrador Connected     ");
 				}
 				else
@@ -224,7 +211,7 @@ class App : public AppBase<App>
 						if (tmp) flash_firmware_popup = true; // persistent display if it was open
 					}
 				}
-				// uint8_t deviceVariant = librador_get_device_firmware_variant();
+
 				const ImU32 status_colour = ImGui::GetColorU32(
 				connected ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
 				const float radius = ImGui::GetTextLineHeight() * 0.4;
@@ -297,7 +284,7 @@ class App : public AppBase<App>
 			if (connected)
 			{
 				// Check connection status
-				connected = librador_get_device_firmware_variant() != 179; // disconnected status (not tested on other boards so may not work)
+				connected = librador_get_device_firmware_variant() != 179; // disconnected status
 				if (!connected) librador_reset_usb();
 				else
 				{
@@ -548,10 +535,9 @@ class App : public AppBase<App>
 	const int labRefreshRate = 60; // send controls to labrador every this many frames
 	bool connected = false; // state of labrador connection
 	bool flash_firmware_next_frame = false;
+	
 	// Define default configurations for widgets here
 	PSUControl PSUWidget = PSUControl("Power Supply Unit (PSU)", ImVec2(0,0), constants::PSU_ACCENT);
-	//MultimeterControl MMWidget
-	//    = MultimeterControl("Multimeter", ImVec2(0, 0), IM_COL32(0,0,0, 255));
 	SGControl SG1Widget = SGControl("Signal Generator 1 (SG1)", ImVec2(0, 0),
 	    constants::SG1_ACCENT, 1, &PSUWidget.voltage);
 	SGControl SG2Widget = SGControl("Signal Generator 2 (SG2)", ImVec2(0, 0),
@@ -560,7 +546,7 @@ class App : public AppBase<App>
 	    = OSCControl("Plot Settings", ImVec2(0, 0), constants::OSC_ACCENT);
 	PlotWidget PlotWidgetObj 
 		= PlotWidget("Plot Window",ImVec2(0, 0),&OSCWidget);
-	HelpWidget TroubleShoot = HelpWidget("Troubleshooting");
+	HelpWidget TroubleShoot = HelpWidget("Troubleshooting"); // Purely for universal help
 	ControlWidget* widgets[6]
 	    = { &TroubleShoot, &PSUWidget, &SG1Widget, &SG2Widget, &OSCWidget, &PlotWidgetObj };
 };
