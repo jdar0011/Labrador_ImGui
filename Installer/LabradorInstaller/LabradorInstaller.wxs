@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Product Id="*" Name="Labrador" Language="1033" Version="1.0.0.0" Manufacturer="Labrador" UpgradeCode="14247ac5-5200-4af7-8b52-a9d9eff4ee0c">
+		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x64" InstallPrivileges="elevated"/>
+
+		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+		<MediaTemplate EmbedCab="yes"/>
+
+		<Feature Id="ProductFeature" Title="LabradorInstaller" Level="1">
+			<ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="FirmwareComponents" />
+      <ComponentGroupRef Id="FontsComponents" />
+      <ComponentGroupRef Id="MediaComponents" />
+      <ComponentRef Id="ApplicationShortcut" />   
+		</Feature>
+    <Binary Id="DriverInstallerExe" SourceFile="../requirements/Driver_Install.exe" />
+    <CustomAction Id="RunDriverInstaller" BinaryKey="DriverInstallerExe" ExeCommand="" Execute="deferred" Return="ignore" Impersonate="no"/>
+
+    <CustomAction Id="ShowMessageAfterInstall" Return="ignore" Execute="immediate" 
+     Script="vbscript">
+      <![CDATA[
+        MsgBox "Installation complete!" & vbCrLf & "Application location: C:\Program Files\Labrador", vbInformation, "Installation Finished"
+      ]]>
+    </CustomAction>
+
+    <Icon Id="icon.ico" SourceFile="../ApplicationFolderFiles/misc/media/icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RunDriverInstaller" Before="InstallFinalize">NOT Installed</Custom>
+      <Custom Action="ShowMessageAfterInstall" After="InstallFinalize">NOT Installed</Custom>
+    </InstallExecuteSequence>
+	</Product>
+
+	<Fragment>
+		<Directory Id="TARGETDIR" Name="SourceDir">
+			<Directory Id="ProgramFiles64Folder">
+				<Directory Id="INSTALLFOLDER" Name="Labrador">
+					<Directory Id="firmware" Name="firmware"/>
+					<Directory Id="misc" Name="misc">
+						<Directory Id="fonts" Name="fonts"/>
+            <Directory Id="media" Name="media"/>
+          </Directory>
+        </Directory>
+			</Directory>
+      
+      <!-- define shortcut -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Labrador Controller"/>
+      </Directory>
+		</Directory>
+  
+	</Fragment>
+
+	<Fragment>
+		<ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+			<Component Id="MainExecutable" Guid="83B3D15B-4FD1-4373-99AA-0D316A7481D8" Win64="yes">
+        <File Id="Labrador_Controller.exe" Source="../ApplicationFolderFiles/Labrador_Controller.exe" KeyPath="yes"/>
+        <File Source="../ApplicationFolderFiles/libfftw3-3.dll"/>
+        <File Source="../ApplicationFolderFiles/libusb-1.0.dll"/>
+        <File Source="../ApplicationFolderFiles/README.md"/>
+			</Component>
+    </ComponentGroup>
+    <ComponentGroup Id="FirmwareComponents" Directory="firmware">
+      <Component Id="firmwareFiles" Guid="967E8B49-351E-4716-8EB5-9A60756D4035"  Win64="yes">
+        <File Source="../ApplicationFolderFiles/firmware/dfu-programmer.exe"/>
+        <File Source="../ApplicationFolderFiles/firmware/flash.bat"/>
+        <File Source="../ApplicationFolderFiles/firmware/wipe.bat"/>
+        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0001_01.hex"/>
+        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0003_01.hex"/>
+        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0003_02.hex"/>
+        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0004_01.hex"/>
+        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0004_02.hex"/>
+        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0005_01.hex"/>
+        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0005_02.hex"/>
+        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0006_01.hex"/>
+        <File Source="../ApplicationFolderFiles/firmware/labrafirm_0006_02.hex"/>
+        <File Source="../ApplicationFolderFiles/firmware/RESET_TO_LC_FIRMWARE.bat"/>
+      </Component>
+    </ComponentGroup>
+    <ComponentGroup Id="FontsComponents" Directory="fonts">
+      <Component Id="fontsFiles" Guid="0AABC43C-E1AF-4A13-A42C-7D52E6BD6464"  Win64="yes">
+        <File Source="../ApplicationFolderFiles/misc/fonts/arial.ttf"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/arialbd.ttf"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/arialbi.ttf"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/ariali.ttf"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/ARIALN.TTF"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/ARIALNB.TTF"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/ARIALNBI.TTF"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/ARIALNI.TTF"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/ariblk.ttf"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/Cousine-Regular.ttf"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/DroidSans.ttf"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/Karla-Regular.ttf"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/ProggyClean.ttf"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/ProggyTiny.ttf"/>
+        <File Source="../ApplicationFolderFiles/misc/fonts/Roboto-Medium.ttf"/>
+      </Component>
+    </ComponentGroup>
+    <ComponentGroup Id="MediaComponents" Directory="media">
+      <Component Id="mediaFiles" Guid="3534CE09-F618-4172-935C-D4C68B895375"  Win64="yes">
+        <File Source="../ApplicationFolderFiles/misc/media/osc-pinout.png"/>
+        <File Source="../ApplicationFolderFiles/misc/media/psu-pinout.png"/>
+        <File Source="../ApplicationFolderFiles/misc/media/sg-pinout.png"/>
+        <File Source="../ApplicationFolderFiles/misc/media/icon64.png"/>
+        <File Source="../ApplicationFolderFiles/misc/media/icon128.png"/>
+      </Component>
+		</ComponentGroup>
+    
+  <!-- Adding shortcut to installer package-->
+  <DirectoryRef Id="ApplicationProgramsFolder">
+    <Component Id="ApplicationShortcut" Guid="E31CDFE3-7DFB-49F0-AA54-17E87455CDF0">
+        <Shortcut Id="ApplicationStartMenuShortcut" 
+                  Name="Labrador Controller"
+                  Description="Control interface for the Espotek Labrador board"
+                  Target="[#Labrador_Controller.exe]"
+                  WorkingDirectory="INSTALLFOLDER"/>
+        <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" Key="Software\MyCompany\MyApplicationName" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+    </Component>
+  </DirectoryRef>
+	</Fragment>
+
+
+</Wix>

@@ -293,12 +293,21 @@ public:
 		OSC2Data.SetPaused(osc_control->Paused);
 		OSC1Data.SetExtendedData();
 		OSC2Data.SetExtendedData();
-		double trigger_time_osc1 = OSC1Data.GetTriggerTime(osc_control->Trigger1, static_cast<constants::TriggerType>(osc_control->Trigger1TypeComboCurrentItem),
-			    osc_control->Trigger1Level.getValue(), osc_control->Trigger1Hysteresis);
-		double trigger_time_osc2 = OSC2Data.GetTriggerTime(osc_control->Trigger2, static_cast<constants::TriggerType>(osc_control->Trigger2TypeComboCurrentItem),
-			    osc_control->Trigger2Level.getValue(), osc_control->Trigger2Hysteresis);
-		OSC1Data.SetTriggerTime(trigger_time_osc1);
-		OSC2Data.SetTriggerTime(trigger_time_osc2);
+		constants::Channel trigger_channel = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).channel;
+		constants::TriggerType trigger_type = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).trigger_type;
+		double trigger_time = 0;
+		if (trigger_channel == constants::Channel::OSC1)
+		{
+			trigger_time = OSC1Data.GetTriggerTime(osc_control->Trigger, trigger_type,
+				osc_control->TriggerLevel.getValue(), osc_control->TriggerHysteresis);
+		}
+		if (trigger_channel == constants::Channel::OSC2)
+		{
+			trigger_time = OSC2Data.GetTriggerTime(osc_control->Trigger, trigger_type,
+				osc_control->TriggerLevel.getValue(), osc_control->TriggerHysteresis);
+		}
+		OSC1Data.SetTriggerTime(trigger_time);
+		OSC2Data.SetTriggerTime(trigger_time);
 		OSC1Data.SetData();
 		OSC2Data.SetData();
 		OSC1Data.SetRawData();
@@ -308,19 +317,9 @@ public:
 		OSC1Data.ApplyFFT();
 		OSC2Data.ApplyFFT();
 		AutoSetOscGain();
-		if (osc_control->AutoTrigger1Level)
+		if (osc_control->AutoTriggerLevel)
 		{
-			AutoSetTriggerLevel(constants::Channel::OSC1,
-			    static_cast<constants::TriggerType>(osc_control->Trigger1TypeComboCurrentItem),
-			    &osc_control->Trigger1Level,
-			    &osc_control->Trigger1Hysteresis);
-		}
-		if (osc_control->AutoTrigger2Level)
-		{
-			AutoSetTriggerLevel(constants::Channel::OSC2,
-			    static_cast<constants::TriggerType>(osc_control->Trigger2TypeComboCurrentItem),
-			    &osc_control->Trigger2Level,
-			    &osc_control->Trigger2Hysteresis);
+			AutoSetTriggerLevel(trigger_channel, trigger_type, &osc_control->TriggerLevel, &osc_control->TriggerHysteresis);
 		}
 		HandleWrites();
 	}

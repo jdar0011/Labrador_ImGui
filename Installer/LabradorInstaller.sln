@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33815.320
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "LabradorInstaller", "LabradorInstaller\LabradorInstaller.wixproj", "{D55BBAC4-AFD6-48FD-A032-4C58C90AFE60}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D55BBAC4-AFD6-48FD-A032-4C58C90AFE60}.Debug|x64.ActiveCfg = Debug|x86
+		{D55BBAC4-AFD6-48FD-A032-4C58C90AFE60}.Debug|x64.Build.0 = Debug|x86
+		{D55BBAC4-AFD6-48FD-A032-4C58C90AFE60}.Debug|x86.ActiveCfg = Debug|x86
+		{D55BBAC4-AFD6-48FD-A032-4C58C90AFE60}.Debug|x86.Build.0 = Debug|x86
+		{D55BBAC4-AFD6-48FD-A032-4C58C90AFE60}.Release|x64.ActiveCfg = Release|x86
+		{D55BBAC4-AFD6-48FD-A032-4C58C90AFE60}.Release|x64.Build.0 = Release|x86
+		{D55BBAC4-AFD6-48FD-A032-4C58C90AFE60}.Release|x86.ActiveCfg = Release|x86
+		{D55BBAC4-AFD6-48FD-A032-4C58C90AFE60}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {61E9A6D5-B233-4906-8071-926EEAB382DB}
+	EndGlobalSection
+EndGlobal
