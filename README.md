@@ -4,10 +4,16 @@
 - The primary goals of the design it to be student friendly and accessible, meaning that advanced features are not present
 - The original application for the board can be found [here](https://github.com/EspoTek/Labrador)
 - Developed as an ECSE Final Year Project at Monash University
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/72207e83-18da-40ee-9f17-82211c3f7350" alt="labrador-controller-home-page" width="750"/>
+</p>
 
 # Installation
 
-- *Windows Installer to be released October 2024*
+### Windows
+- v1.0.0 Release (October 2024) found [here](https://github.com/jdar0011/Labrador_ImGui/releases/tag/v.1.0.0)
+- Download and run .msi file, application and relevant driver will be installed.
+- **Currently for Windows devices only**
 
 # Running the Code
 
