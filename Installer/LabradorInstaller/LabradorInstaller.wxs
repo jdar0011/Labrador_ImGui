@@ -3,6 +3,9 @@
 	<Product Id="*" Name="Labrador" Language="1033" Version="1.0.0.0" Manufacturer="Labrador" UpgradeCode="14247ac5-5200-4af7-8b52-a9d9eff4ee0c">
 		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x64" InstallPrivileges="elevated"/>
 
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <UIRef Id ="UI"/>
+    
 		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
 		<MediaTemplate EmbedCab="yes"/>
 
@@ -16,19 +19,11 @@
     <Binary Id="DriverInstallerExe" SourceFile="../requirements/Driver_Install.exe" />
     <CustomAction Id="RunDriverInstaller" BinaryKey="DriverInstallerExe" ExeCommand="" Execute="deferred" Return="ignore" Impersonate="no"/>
 
-    <CustomAction Id="ShowMessageAfterInstall" Return="ignore" Execute="immediate" 
-     Script="vbscript">
-      <![CDATA[
-        MsgBox "Installation complete!" & vbCrLf & "Application location: C:\Program Files\Labrador", vbInformation, "Installation Finished"
-      ]]>
-    </CustomAction>
-
     <Icon Id="icon.ico" SourceFile="../../misc/media/icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="icon.ico" />
 
     <InstallExecuteSequence>
       <Custom Action="RunDriverInstaller" Before="InstallFinalize">NOT Installed</Custom>
-      <Custom Action="ShowMessageAfterInstall" After="InstallFinalize">NOT Installed</Custom>
     </InstallExecuteSequence>
 	</Product>
 
