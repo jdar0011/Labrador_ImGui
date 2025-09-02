@@ -7,6 +7,7 @@
 - You will need to download the WiX extension for Visual Studio. In Visual Studio, go to Extensions->Manage Extensions and search Online for WiX v3 - Visual Studio 2022 Extension, and download and install.
 - You will also need to download and install the WiX toolset from [here](https://github.com/wixtoolset/wix3/releases/tag/wix3112rtm). Download wix311.exe and run, and click Install.
 # Building the Installer
+- If you haven't, build the x64 Release configuration of Labrador_ImGui
 - Open LabradorInstaller.sln in Visual Studio 2022
 - Build on the x64 Release configuration
 - The installer, LabradorInstaller.msi, can be found in LabradorInstaller/bin/Release
