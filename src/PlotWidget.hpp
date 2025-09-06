@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <float.h>
+#include <math.h>
 #include "ControlWidget.hpp"
 
 /// <summary>
@@ -69,8 +70,6 @@ public:
 		{
 			// No Labels for plot
 			ImPlot::SetupAxes("", "", ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
-			// Lock 0 to the max value
-			ImPlot::SetupAxis(ImAxis_X1, nullptr, ImPlotAxisFlags_LockMin);
 			// Ensure plot cannot be expanded larger than the size of the buffer
 			ImPlot::SetupAxisZoomConstraints(ImAxis_X1, 0, 60);
 			ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, -20, 20);
@@ -163,7 +162,7 @@ public:
 				    analog_data_osc1.size());
 			}
 			// Set OscData Time Vector to match the current X-axis
-			OSC1Data.SetTime(ImPlot::GetPlotLimits().X.Size(), ImPlot::GetPlotLimits().X.Min);
+			OSC1Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
 			// Plot Oscilloscope 2 Signal
 			std::vector<double> time_osc2 = OSC2Data.GetTime();
 			ImPlot::SetNextLineStyle(osc_control->OSC2Colour.Value);
@@ -173,12 +172,129 @@ public:
 				    analog_data_osc2.size());
 			}
 			// Set OscData Time Vector to match the current X-axis
-			OSC2Data.SetTime(ImPlot::GetPlotLimits().X.Size(), ImPlot::GetPlotLimits().X.Min);
+			OSC2Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
 			// Plot cursor 1
 			if (osc_control->Cursor1toggle)
 				drawCursor(1, &cursor1_x, &cursor1_y);
 			if (osc_control->Cursor2toggle)
 				drawCursor(2, &cursor2_x, &cursor2_y);
+
+			// Draw Trigger Markings
+			ImDrawList* draw_list = ImPlot::GetPlotDrawList();
+			double trig_x = trigger_time_plot;
+			double trig_y = osc_control->TriggerLevel.getValue();
+
+			ImVec2 px = ImPlot::PlotToPixels(trig_x, trig_y);
+
+			ImVec2 plot_min = ImPlot::GetPlotPos();
+			ImVec2 plot_size = ImPlot::GetPlotSize();
+			ImVec2 plot_max(plot_min.x + plot_size.x, plot_min.y + plot_size.y);
+
+			ImU32 col_trig = IM_COL32(204, 85, 0, 255);
+
+			// Vertical Trigger Marker
+			if(px.x >= plot_min.x && px.x <= plot_max.x) // if in plot range
+			{
+				float x = px.x;
+				float y = plot_min.y;
+				float s = 10.0f;
+
+				ImVec2 p1(x, y+s);
+				ImVec2 p2(x - 0.5*s, y);
+				ImVec2 p3(x + 0.5*s, y);
+
+				draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
+				
+				ImVec2 text_size = ImGui::CalcTextSize("T");
+				draw_list->AddText(ImVec2(x - text_size.x * 0.5f, y - text_size.y+4), col_trig, "T");
+				
+			}
+			else
+			{
+				// Draw offscreen indicator
+				if (px.x < plot_min.x) // left side
+				{
+					float alpha = 100.0f; // controls how steeply the triangle size decreases offscreen
+					float s = 3*exp(alpha * (trig_x - ImPlot::GetPlotLimits().X.Min)) + 5;
+					float x = plot_min.x-s/2;
+					float y = plot_min.y;
+					ImVec2 p1(x, y + s);
+					ImVec2 p2(x - 0.5 * s, y);
+					ImVec2 p3(x + 0.5 * s, y);
+					draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
+					ImGui::SetWindowFontScale(s/10);  // 1.0 = normal, 1.5 = 150% size
+					ImVec2 text_size = ImGui::CalcTextSize("T");
+					draw_list->AddText(ImVec2(x - text_size.x * 0.5f, y - text_size.y + 4), col_trig, "T");
+					ImGui::SetWindowFontScale(1.0f);  // reset
+				}
+				else if (px.x > plot_max.x) // right side
+				{
+					float alpha = 100.0f; // controls how steeply the triangle size decreases offscreen
+					float s = 3*exp(alpha * (ImPlot::GetPlotLimits().X.Max-trig_x)) +5;
+					float x = plot_max.x + s / 2;
+					float y = plot_min.y;
+					ImVec2 p1(x, y + s);
+					ImVec2 p2(x - 0.5 * s, y);
+					ImVec2 p3(x + 0.5 * s, y);
+					draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
+					ImGui::SetWindowFontScale(s / 10);  // 1.0 = normal, 1.5 = 150% size
+					ImVec2 text_size = ImGui::CalcTextSize("T");
+					draw_list->AddText(ImVec2(x - text_size.x * 0.5f, y - text_size.y + 4), col_trig, "T");
+					ImGui::SetWindowFontScale(1.0f);  // reset
+				}
+			}
+			// Horizontal Trigger Marker
+			if (px.y >= plot_min.y && px.y <= plot_max.y) // if in plot range
+			{
+				float x = plot_max.x;
+				float y = px.y;
+				float s = 10.0f;
+
+				ImVec2 p1(x - s, y);
+				ImVec2 p2(x, y - 0.5*s);
+				ImVec2 p3(x, y + 0.5*s);
+
+				draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
+
+				ImVec2 text_size = ImGui::CalcTextSize("T");
+				draw_list->AddText(ImVec2(x, y - text_size.y*0.5), col_trig, "T");
+
+			}
+			else
+			{
+				// Draw offscreen indicator
+				if (px.y > plot_max.y) // bottom side
+				{
+					float alpha = 1.0f; // controls how steeply the triangle size decreases offscreen
+					float s = 3*exp(alpha * (trig_y - ImPlot::GetPlotLimits().Y.Min)) + 5;
+					float x = plot_max.x;
+					float y = plot_max.y+s/2;
+					ImVec2 p1(x - s, y);
+					ImVec2 p2(x, y - 0.5 * s);
+					ImVec2 p3(x, y + 0.5 * s);
+					draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
+					ImGui::SetWindowFontScale(s / 10);  // 1.0 = normal, 1.5 = 150% size
+					ImVec2 text_size = ImGui::CalcTextSize("T");
+					draw_list->AddText(ImVec2(x, y - text_size.y * 0.5), col_trig, "T");
+					ImGui::SetWindowFontScale(1.0f);  // reset
+				}
+				else if (px.y < plot_min.y) // top side
+				{
+					float alpha = 1.0f; // controls how steeply the triangle size decreases offscreen
+					float s = 3*exp(alpha * (ImPlot::GetPlotLimits().Y.Max-trig_y)) + 5;
+					float x = plot_max.x;
+					float y = plot_min.y - s / 2;
+					ImVec2 p1(x - s, y);
+					ImVec2 p2(x, y - 0.5 * s);
+					ImVec2 p3(x, y + 0.5 * s);
+					draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
+					ImGui::SetWindowFontScale(s / 10);  // 1.0 = normal, 1.5 = 150% size
+					ImVec2 text_size = ImGui::CalcTextSize("T");
+					draw_list->AddText(ImVec2(x, y - text_size.y * 0.5), col_trig, "T");
+					ImGui::SetWindowFontScale(1.0f);  // reset
+				}
+			}
+
 
 			ImPlot::EndPlot();
 		}
@@ -283,12 +399,18 @@ public:
 
 	void UpdateOscData()
 	{
+		// sets whether the osc is paused or not (if paused, data will not update)
 		OSC1Data.SetPaused(osc_control->Paused);
 		OSC2Data.SetPaused(osc_control->Paused);
+		// sets the time that the trigger on the plot will trigger (basically the time where the trigger marker on the plot is; defaults at 0)
+		OSC1Data.SetTriggerTimePlot(trigger_time_plot);
+		OSC2Data.SetTriggerTimePlot(trigger_time_plot);
+		// sets the entire vector which will be used to plot (including part cut off due to trigger)
 		OSC1Data.SetExtendedData();
 		OSC2Data.SetExtendedData();
 		constants::Channel trigger_channel = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).channel;
 		constants::TriggerType trigger_type = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).trigger_type;
+		// calculates the time that the trigger occurs in the extended_data vector depending on which channel is triggering
 		double trigger_time = 0;
 		if (trigger_channel == constants::Channel::OSC1)
 		{
@@ -300,21 +422,29 @@ public:
 			trigger_time = OSC2Data.GetTriggerTime(osc_control->Trigger, trigger_type,
 				osc_control->TriggerLevel.getValue(), osc_control->TriggerHysteresis);
 		}
+		// sets the trigger time for both oscs
 		OSC1Data.SetTriggerTime(trigger_time);
 		OSC2Data.SetTriggerTime(trigger_time);
+		// sets the data vector that will be plotted
 		OSC1Data.SetData();
 		OSC2Data.SetData();
+		// sets the data vector used for analysis (FFT, period, Vpp etc; quite large)
 		OSC1Data.SetRawData();
 		OSC2Data.SetRawData();
+		// sets another data vector used for analysis (contains a whole number of periods)
 		OSC1Data.SetPeriodicData();
 		OSC2Data.SetPeriodicData();
+		// applies FFT to the raw_data vector
 		OSC1Data.ApplyFFT();
 		OSC2Data.ApplyFFT();
+		// auto sets gain to maximise resolution without clipping
 		AutoSetOscGain();
+		// auto sets trigger level
 		if (osc_control->AutoTriggerLevel)
 		{
 			AutoSetTriggerLevel(trigger_channel, trigger_type, &osc_control->TriggerLevel, &osc_control->TriggerHysteresis);
 		}
+		// handles writing to clipboard and csv files (copying data)
 		HandleWrites();
 	}
 	void HandleWrites()
@@ -559,8 +689,8 @@ private:
 protected:
 	ImVec2 size;
 	bool paused = false;
-	double init_time_range_lower = 0;
-	double init_time_range_upper = 0.03;
+	double init_time_range_lower = -0.015;
+	double init_time_range_upper = 0.015;
 	double init_voltage_range_lower = -1.0;
 	double init_voltage_range_upper = 5.0;
 	OSCControl* osc_control;
@@ -570,5 +700,6 @@ protected:
 	double cursor1_y = -1000;
 	double cursor2_x = -1000;
 	double cursor2_y = -1000;
+	double trigger_time_plot = 0;
 	int last_update_frame = 10;
 };

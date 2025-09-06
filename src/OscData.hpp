@@ -56,7 +56,19 @@ public:
 		if (!paused)
 		{
 			double sample_rate_hz = CalculateSampleRate();
-			double ext_time_window = time_window + trigger_timeout > 60 ? 60.0 : time_window + trigger_timeout;
+			double ext_time_window = 0;
+			if (time_max < trigger_time_plot)
+			{
+				ext_time_window = trigger_timeout + trigger_time_plot - time_min;
+			}
+			else if (time_min > trigger_time_plot)
+			{
+				ext_time_window = time_max - trigger_time_plot + trigger_timeout;
+			}
+			else
+			{
+				ext_time_window = time_max - time_min + trigger_timeout;
+			}
 			std::vector<double>* extended_data_ptr = librador_get_analog_data(channel,
 				ext_time_window, sample_rate_hz, delay_s, filter_mode);
 			if (extended_data_ptr)
@@ -85,25 +97,14 @@ public:
 			}
 			else
 			{
-				if ((trigger_time + time_window) * sample_rate_hz < extended_data.size())
-				{
-					// Trigger within timewindow
-					data = std::vector<double>(
-					    extended_data.begin() + trigger_time * sample_rate_hz,
-					    extended_data.begin() + (trigger_time + time_window) * sample_rate_hz);
-				}
-				else
-				{
-					data = std::vector<double>(
-					    extended_data.begin() + 0,
-					    extended_data.begin() + time_window * sample_rate_hz);
-				}
-				
+				data = std::vector<double>(
+					extended_data.begin() + (trigger_time_since_ext_start + time_min - trigger_time_plot) * sample_rate_hz,
+					extended_data.begin() + (trigger_time_since_ext_start + time_min - trigger_time_plot + time_window) * sample_rate_hz);
 			}
-			this->time_step = this->time_window / data.size();
+			this->time_step = time_window / data.size();
 			double time_step = time_window / data.size();
 			time.resize(data.size());
-			auto& local_time_start = time_start;
+			auto& local_time_start = time_min;
 			std::generate(time.begin(), time.end(),
 			    [n = 0, &time_step, &local_time_start]() mutable
 			    { return n++ * time_step + local_time_start; });
@@ -113,30 +114,32 @@ public:
 	{
 		return time;
 	}
-	void SetTime(double time_window,double time_start)
+	void SetTime(double time_min, double time_max)
 	{
-		if (!paused)
-		{
-			this->time_window = time_window;
-			this->time_start = time_start;
-
-		}
-		this->time_step = this->time_window / data.size();
-		double time_step = this->time_step;
-		std::vector<double> time(data.size());
-		auto& local_time_start = this->time_start;
-		std::generate(time.begin(), time.end(),
-		    [n = 0, &time_step, &local_time_start]() mutable
-		    { return n++ * time_step + local_time_start; });
+		this->time_min = time_min;
+		this->time_max = time_max;
+		time_window = time_max - time_min;
 	}
 	double GetTriggerTime(bool trigger,
-	    constants::TriggerType trigger_type,
-	    double trigger_level, double trigger_hysteresis)
+		constants::TriggerType trigger_type,
+		double trigger_level, double trigger_hysteresis)
 	{
+		double sample_rate_hz = CalculateSampleRate();
+		int trigger_start_index = 0;
+		int trigger_end_index = 0;
+		std::vector<double> temp_data = {};
 		if (!paused)
 		{
-			double sample_rate_hz = CalculateSampleRate();
-			std::vector<double> temp_data = extended_data;
+			temp_data = extended_data;
+			if (time_max > trigger_time_plot)
+			{
+				trigger_start_index = temp_data.size() - 1 - (time_max-trigger_time_plot) * sample_rate_hz;
+			}
+			else
+			{
+				trigger_start_index = temp_data.size() - 1;
+			}
+			trigger_end_index = trigger_start_index - trigger_timeout * sample_rate_hz + 1;
 			if (trigger && time_window > 0 && extended_data.size() != 0)
 			{
 				switch (trigger_type)
@@ -144,19 +147,18 @@ public:
 				case constants::TriggerType::RISING_EDGE:
 				{
 					double hysteresis_level = trigger_level - trigger_hysteresis;
-					trigger_time = trigger_timeout+1;
-					for (int i = trigger_timeout*sample_rate_hz; i > 0; i--)
+					bool trigger_flag = false;
+					for (int i = trigger_start_index; i > trigger_end_index; i--)
 					{
 						if (temp_data[i] > trigger_level
-						    && temp_data[i - 1] < trigger_level)
+							&& temp_data[i - 1] < trigger_level)
 						{
-							trigger_time = i / sample_rate_hz; // time in seconds
-							                           // after the beginning of the
-							                           // signal of the ith element
+							trigger_time_since_ext_start = i / sample_rate_hz; // time in seconds after beginning of extended_data
+							trigger_flag = true;
 						}
-						if (trigger_time <= trigger_timeout && temp_data[i] < hysteresis_level)
+						if (trigger_flag&& temp_data[i] < hysteresis_level)
 						{
-							return trigger_time; 
+							return trigger_time_since_ext_start;
 						}
 					}
 					break;
@@ -164,46 +166,49 @@ public:
 				case constants::TriggerType::FALLING_EDGE:
 				{
 					double hysteresis_level = trigger_level + trigger_hysteresis;
-					trigger_time = trigger_timeout + 1;
-					for (int i = trigger_timeout * sample_rate_hz; i > 0; i--)
+					bool trigger_flag = false;
+					for (int i = trigger_start_index; i > trigger_end_index; i--)
 					{
 						if (temp_data[i] < trigger_level && temp_data[i - 1] > trigger_level)
 						{
-							trigger_time = i / sample_rate_hz; // time in seconds
-							                                   // after the beginning of the
-							                                   // signal of the ith element
+							trigger_time_since_ext_start = i / sample_rate_hz; // time in seconds after beginning of extended_data
+							trigger_flag = true;
 						}
-						if (trigger_time <= trigger_timeout && temp_data[i] > hysteresis_level)
+						if (trigger_flag && temp_data[i] > hysteresis_level)
 						{
-							return trigger_time;
+							return trigger_time_since_ext_start;
 						}
 					}
 					break;
 				}
 				default:
 				{
-					return trigger_timeout; // trigger as late as possible
+					return trigger_end_index / sample_rate_hz; // trigger as late as possible
 				}
 				}
-				return trigger_timeout; // trigger as late as possible
+				return trigger_end_index / sample_rate_hz; // trigger as late as possible
 			}
 			else
 			{
-				return trigger_timeout;
+				return trigger_end_index / sample_rate_hz;
 			}
 		}
-		return trigger_timeout;
+		return trigger_time_since_ext_start;
 	}
 	void SetTriggerTime(double trigger_time)
 	{
 		if (!paused)
 		{
-			this->trigger_time = trigger_time;
+			this->trigger_time_since_ext_start = trigger_time;
 		}
 	}
 	void SetTriggerTimeout(double trigger_timeout)
 	{
 		this->trigger_timeout = trigger_timeout;
+	}
+	void SetTriggerTimePlot(double trigger_time_plot)
+	{
+		this->trigger_time_plot = trigger_time_plot;
 	}
 	void SetPaused(bool paused)
 	{
@@ -430,6 +435,8 @@ public:
 
 private:
 	// time domain (plot) stuff
+	double time_min = 0;
+	double time_max = 0;
 	double time_window = 0;
 	double time_start = 0;
 	double time_step = 0;
@@ -441,7 +448,8 @@ private:
 	int filter_mode = 0;
 	double delay_s = 0;
 	double trigger_timeout = 0.2; // seconds
-	double trigger_time = trigger_timeout; // seconds
+	double trigger_time_since_ext_start = 0; // seconds, relative to start of extended_data vector
+	double trigger_time_plot = 0; // seconds, time that trigger shows on plot
 	int max_plot_samples = 2048;
 	double max_sample_rate = 375000;
 	// frequency stuff
