@@ -129,4 +129,6 @@ void replace_all(
 void MultiplyButtonColour(ImU32* ButtonColour, float multiplier);
 std::string NumToString(double num,int precision);
 int MetricFormatter(double value, char* buff, int size, void* data);
+void ToggleTriggerTypeComboChannel(int* ComboCurrentItem);
+void ToggleTriggerTypeComboType(int* ComboCurrentItem);
 #endif

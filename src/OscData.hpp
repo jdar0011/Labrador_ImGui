@@ -55,7 +55,8 @@ public:
 	{
 		if (!paused)
 		{
-			double sample_rate_hz = CalculateSampleRate();
+			extended_data_sample_rate_hz = CalculateSampleRate();
+			double sample_rate_hz = extended_data_sample_rate_hz;
 			double ext_time_window = 0;
 			if (time_max < trigger_time_plot)
 			{
@@ -90,16 +91,23 @@ public:
 	{
 		if (!paused)
 		{
-			double sample_rate_hz = CalculateSampleRate();
+			double sample_rate_hz = extended_data_sample_rate_hz;
 			if (extended_data.size() == 0)
 			{
 				data = {};
 			}
-			else
+			else if (trigger_on)
 			{
 				data = std::vector<double>(
 					extended_data.begin() + (trigger_time_since_ext_start + time_min - trigger_time_plot) * sample_rate_hz,
 					extended_data.begin() + (trigger_time_since_ext_start + time_min - trigger_time_plot + time_window) * sample_rate_hz);
+			}
+			else
+			{
+				data = std::vector<double>(
+					extended_data.end() - time_window * sample_rate_hz,
+					extended_data.end()
+				);
 			}
 			this->time_step = time_window / data.size();
 			double time_step = time_window / data.size();
@@ -120,11 +128,16 @@ public:
 		this->time_max = time_max;
 		time_window = time_max - time_min;
 	}
+	void SetTriggerOn(bool trigger)
+	{
+		trigger_on = trigger;
+	}
 	double GetTriggerTime(bool trigger,
 		constants::TriggerType trigger_type,
 		double trigger_level, double trigger_hysteresis)
 	{
-		double sample_rate_hz = CalculateSampleRate();
+		trigger_on = trigger;
+		double sample_rate_hz = extended_data_sample_rate_hz;
 		int trigger_start_index = 0;
 		int trigger_end_index = 0;
 		std::vector<double> temp_data = {};
@@ -139,7 +152,7 @@ public:
 			{
 				trigger_start_index = temp_data.size() - 1;
 			}
-			trigger_end_index = trigger_start_index - trigger_timeout * sample_rate_hz + 1;
+			trigger_end_index = trigger_start_index - trigger_timeout * sample_rate_hz + 2; // why + 2? i don't know
 			if (trigger && time_window > 0 && extended_data.size() != 0)
 			{
 				switch (trigger_type)
@@ -183,14 +196,17 @@ public:
 				}
 				default:
 				{
-					return trigger_end_index / sample_rate_hz; // trigger as late as possible
+					trigger_time_since_ext_start = trigger_start_index / sample_rate_hz;
+					return trigger_time_since_ext_start; // trigger as late as possible
 				}
 				}
-				return trigger_end_index / sample_rate_hz; // trigger as late as possible
+				trigger_time_since_ext_start = trigger_end_index / sample_rate_hz;
+				return trigger_time_since_ext_start; // trigger as late as possible
 			}
 			else
 			{
-				return trigger_end_index / sample_rate_hz;
+				trigger_time_since_ext_start = trigger_start_index / sample_rate_hz;
+				return trigger_time_since_ext_start; // trigger as late as possible
 			}
 		}
 		return trigger_time_since_ext_start;
@@ -447,9 +463,11 @@ private:
 	int channel;
 	int filter_mode = 0;
 	double delay_s = 0;
+	bool trigger_on = true;
 	double trigger_timeout = 0.2; // seconds
 	double trigger_time_since_ext_start = 0; // seconds, relative to start of extended_data vector
 	double trigger_time_plot = 0; // seconds, time that trigger shows on plot
+	double extended_data_sample_rate_hz = 0;
 	int max_plot_samples = 2048;
 	double max_sample_rate = 375000;
 	// frequency stuff

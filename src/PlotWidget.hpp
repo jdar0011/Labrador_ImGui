@@ -34,6 +34,7 @@ public:
 	    , osc_control(osc_control)
 	{
 		librador_set_oscilloscope_gain(1<<currentLabOscGain);
+		ImPlot::GetInputMap().Fit = -1; // Disable double-click to fit so that it doesn't conflict with double-click to reset
 	}
 
 	/// <summary>
@@ -66,16 +67,84 @@ public:
 		
 		ImPlot::SetNextAxesLimits(init_time_range_lower, init_time_range_upper,
 		    init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Once);
-		if (ImPlot::BeginPlot("##Oscilloscopes", plot_size, ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus))
+		if (next_resetX)
+		{
+			ImPlot::SetNextAxisLimits(ImAxis_X1, init_time_range_lower, init_time_range_upper, ImPlotCond_Always);
+			next_resetX = false;
+		}
+		if (next_resetY)
+		{
+			ImPlot::SetNextAxisLimits(ImAxis_Y1, init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Always);
+			next_resetY = false;
+		}
+		if (next_autofitX)
+		{
+			ImPlot::SetNextAxisLimits(ImAxis_X1, next_autofitX_min, next_autofitX_max, ImPlotCond_Always);
+			next_autofitX = false;
+		}
+		if (next_autofitY)
+		{
+			ImPlot::SetNextAxisLimits(ImAxis_Y1, next_autofitY_min, next_autofitY_max, ImPlotCond_Always);
+			next_autofitY = false;
+		}
+
+		// --- before BeginPlot ---
+		ImPlotFlags base_plot_flags = ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus;
+
+		ImPlotFlags plot_flags = base_plot_flags;
+
+		if (trig_dragging) {
+			// Option A (strict): block all plot inputs (pan, zoom, box select, etc.)
+			plot_flags |= ImPlotFlags_NoInputs;
+
+		}
+		if (ImPlot::BeginPlot("##Oscilloscopes", plot_size, plot_flags))
 		{
 			// No Labels for plot
 			ImPlot::SetupAxes("", "", ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
 			// Ensure plot cannot be expanded larger than the size of the buffer
 			ImPlot::SetupAxisZoomConstraints(ImAxis_X1, 0, 60);
 			ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, -20, 20);
+			// --- Double-click to reset plot limits ---
 			// Setup Axis to show units
 			ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"s");
 			ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
+			if (ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) 
+			{
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl))
+				{
+					next_resetX = true;
+					next_resetY = true;
+				}
+				else
+				{
+					osc_control->AutofitX = true;
+					osc_control->AutofitY = true;
+				}
+				
+			}
+			if (ImPlot::IsAxisHovered(ImAxis_X1) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+			{
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl))
+				{
+					next_resetX = true;
+				}
+				else
+				{
+					osc_control->AutofitX = true;
+				}
+			}
+			if (ImPlot::IsAxisHovered(ImAxis_Y1) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+			{
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl))
+				{
+					next_resetY = true;
+				}
+				else
+				{
+					osc_control->AutofitY = true;
+				}
+			}
 			// Autofit X so that 3 periods occur in a time window
 			// If there are 2 oscs visible use the one with the larger period
 			// If none are visible, reset to default
@@ -105,9 +174,11 @@ public:
 				}
 				// if no data, 0 period, set to default range
 				T = T == 0 ? init_time_range_upper : T;
-				ImPlot::SetupAxisLimits(ImAxis_X1,init_time_range_lower,T,ImPlotCond_Always);
+				next_autofitX_min = -T / 2;
+				next_autofitX_max = T / 2;
+				next_autofitX = true;
 			}
-			// Autofits Y so that data is centered and takes up 1/3 of the screen (this can be written way cleaner)
+			// Autofits Y
 			if (osc_control->AutofitY) 
 			{
 				double osc1_max;
@@ -137,21 +208,17 @@ public:
 				double osc_max = osc1_max > osc2_max ? osc1_max : osc2_max;
 				double osc_min = osc1_min < osc2_min ? osc1_min : osc2_min;
 				double osc_range = osc_max - osc_min;
-				double osc_frac = 0.5;
+				double osc_frac = 0.3;
 				double pad = 0.5 * osc_range * (1 / osc_frac - 1);
-				if (OSC1Data.GetData().size() == 0 && OSC2Data.GetData().size() == 0)
+				// set to default
+				next_autofitY_min = init_voltage_range_lower;
+				next_autofitY_max = init_voltage_range_upper;
+				if (osc_control->DisplayCheckOSC1 || osc_control->DisplayCheckOSC2) // only autofit if there is visible data
 				{
-					ImPlot::SetupAxisLimits(ImAxis_Y1, init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Always);
+					next_autofitY_min = osc_min - pad;
+					next_autofitY_max = osc_max + pad;
 				}
-				else if (osc_control->DisplayCheckOSC1 || osc_control->DisplayCheckOSC2) // only autofit if there is visible data
-				{
-					ImPlot::SetupAxisLimits(ImAxis_Y1, osc_min - pad, osc_max + pad,ImPlotCond_Always);
-				}
-				else // else reset to default (start-up) range
-				{
-					ImPlot::SetupAxisLimits(ImAxis_Y1, init_voltage_range_lower,init_voltage_range_upper,ImPlotCond_Always);
-				}
-				osc_control->AutofitY = false;
+				next_autofitY = true;
 			}
 			// Plot oscilloscope 1 signal
 			std::vector<double> time_osc1 = OSC1Data.GetTime();
@@ -179,121 +246,7 @@ public:
 			if (osc_control->Cursor2toggle)
 				drawCursor(2, &cursor2_x, &cursor2_y);
 
-			// Draw Trigger Markings
-			ImDrawList* draw_list = ImPlot::GetPlotDrawList();
-			double trig_x = trigger_time_plot;
-			double trig_y = osc_control->TriggerLevel.getValue();
-
-			ImVec2 px = ImPlot::PlotToPixels(trig_x, trig_y);
-
-			ImVec2 plot_min = ImPlot::GetPlotPos();
-			ImVec2 plot_size = ImPlot::GetPlotSize();
-			ImVec2 plot_max(plot_min.x + plot_size.x, plot_min.y + plot_size.y);
-
-			ImU32 col_trig = IM_COL32(204, 85, 0, 255);
-
-			// Vertical Trigger Marker
-			if(px.x >= plot_min.x && px.x <= plot_max.x) // if in plot range
-			{
-				float x = px.x;
-				float y = plot_min.y;
-				float s = 10.0f;
-
-				ImVec2 p1(x, y+s);
-				ImVec2 p2(x - 0.5*s, y);
-				ImVec2 p3(x + 0.5*s, y);
-
-				draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
-				
-				ImVec2 text_size = ImGui::CalcTextSize("T");
-				draw_list->AddText(ImVec2(x - text_size.x * 0.5f, y - text_size.y+4), col_trig, "T");
-				
-			}
-			else
-			{
-				// Draw offscreen indicator
-				if (px.x < plot_min.x) // left side
-				{
-					float alpha = 100.0f; // controls how steeply the triangle size decreases offscreen
-					float s = 3*exp(alpha * (trig_x - ImPlot::GetPlotLimits().X.Min)) + 5;
-					float x = plot_min.x-s/2;
-					float y = plot_min.y;
-					ImVec2 p1(x, y + s);
-					ImVec2 p2(x - 0.5 * s, y);
-					ImVec2 p3(x + 0.5 * s, y);
-					draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
-					ImGui::SetWindowFontScale(s/10);  // 1.0 = normal, 1.5 = 150% size
-					ImVec2 text_size = ImGui::CalcTextSize("T");
-					draw_list->AddText(ImVec2(x - text_size.x * 0.5f, y - text_size.y + 4), col_trig, "T");
-					ImGui::SetWindowFontScale(1.0f);  // reset
-				}
-				else if (px.x > plot_max.x) // right side
-				{
-					float alpha = 100.0f; // controls how steeply the triangle size decreases offscreen
-					float s = 3*exp(alpha * (ImPlot::GetPlotLimits().X.Max-trig_x)) +5;
-					float x = plot_max.x + s / 2;
-					float y = plot_min.y;
-					ImVec2 p1(x, y + s);
-					ImVec2 p2(x - 0.5 * s, y);
-					ImVec2 p3(x + 0.5 * s, y);
-					draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
-					ImGui::SetWindowFontScale(s / 10);  // 1.0 = normal, 1.5 = 150% size
-					ImVec2 text_size = ImGui::CalcTextSize("T");
-					draw_list->AddText(ImVec2(x - text_size.x * 0.5f, y - text_size.y + 4), col_trig, "T");
-					ImGui::SetWindowFontScale(1.0f);  // reset
-				}
-			}
-			// Horizontal Trigger Marker
-			if (px.y >= plot_min.y && px.y <= plot_max.y) // if in plot range
-			{
-				float x = plot_max.x;
-				float y = px.y;
-				float s = 10.0f;
-
-				ImVec2 p1(x - s, y);
-				ImVec2 p2(x, y - 0.5*s);
-				ImVec2 p3(x, y + 0.5*s);
-
-				draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
-
-				ImVec2 text_size = ImGui::CalcTextSize("T");
-				draw_list->AddText(ImVec2(x, y - text_size.y*0.5), col_trig, "T");
-
-			}
-			else
-			{
-				// Draw offscreen indicator
-				if (px.y > plot_max.y) // bottom side
-				{
-					float alpha = 1.0f; // controls how steeply the triangle size decreases offscreen
-					float s = 3*exp(alpha * (trig_y - ImPlot::GetPlotLimits().Y.Min)) + 5;
-					float x = plot_max.x;
-					float y = plot_max.y+s/2;
-					ImVec2 p1(x - s, y);
-					ImVec2 p2(x, y - 0.5 * s);
-					ImVec2 p3(x, y + 0.5 * s);
-					draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
-					ImGui::SetWindowFontScale(s / 10);  // 1.0 = normal, 1.5 = 150% size
-					ImVec2 text_size = ImGui::CalcTextSize("T");
-					draw_list->AddText(ImVec2(x, y - text_size.y * 0.5), col_trig, "T");
-					ImGui::SetWindowFontScale(1.0f);  // reset
-				}
-				else if (px.y < plot_min.y) // top side
-				{
-					float alpha = 1.0f; // controls how steeply the triangle size decreases offscreen
-					float s = 3*exp(alpha * (ImPlot::GetPlotLimits().Y.Max-trig_y)) + 5;
-					float x = plot_max.x;
-					float y = plot_min.y - s / 2;
-					ImVec2 p1(x - s, y);
-					ImVec2 p2(x, y - 0.5 * s);
-					ImVec2 p3(x, y + 0.5 * s);
-					draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
-					ImGui::SetWindowFontScale(s / 10);  // 1.0 = normal, 1.5 = 150% size
-					ImVec2 text_size = ImGui::CalcTextSize("T");
-					draw_list->AddText(ImVec2(x, y - text_size.y * 0.5), col_trig, "T");
-					ImGui::SetWindowFontScale(1.0f);  // reset
-				}
-			}
+			DrawAndDragTriggers();
 
 
 			ImPlot::EndPlot();
@@ -412,6 +365,9 @@ public:
 		constants::TriggerType trigger_type = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).trigger_type;
 		// calculates the time that the trigger occurs in the extended_data vector depending on which channel is triggering
 		double trigger_time = 0;
+		// sets trigger variable for each osc (this is a bit hacky but whatever)
+		OSC1Data.SetTriggerOn(osc_control->Trigger);
+		OSC2Data.SetTriggerOn(osc_control->Trigger);
 		if (trigger_channel == constants::Channel::OSC1)
 		{
 			trigger_time = OSC1Data.GetTriggerTime(osc_control->Trigger, trigger_type,
@@ -572,6 +528,256 @@ public:
 			    = hysteresis_factor * std::abs((OSCData_ptr->GetDataMax() - TriggerLevel->getValue()));
 		}
 	}
+	void DrawAndDragTriggers() {
+		ImDrawList* draw_list = ImPlot::GetPlotDrawList();
+		double trig_x = trigger_time_plot;
+		double trig_y = osc_control->TriggerLevel.getValue();
+
+		ImVec2 plot_min = ImPlot::GetPlotPos();
+		ImVec2 plot_size = ImPlot::GetPlotSize();
+		ImVec2 plot_max(plot_min.x + plot_size.x, plot_min.y + plot_size.y);
+		ImPlotRect lim = ImPlot::GetPlotLimits();
+
+		ImVec2 px = ImPlot::PlotToPixels(trig_x, trig_y);
+		ImGuiIO& io = ImGui::GetIO();
+
+		// trigger information
+		constants::Channel trigger_channel = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).channel;
+		constants::TriggerType trigger_type = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).trigger_type;
+
+		ImColor col_trig_col = trigger_channel == constants::Channel::OSC1 ? osc_control->OSC1Colour : osc_control->OSC2Colour;
+		if (!osc_control->Trigger)
+		{
+			col_trig_col.Value.w = 0.5f; // make transparent
+		}
+		ImU32 col_trig = ImGui::GetColorU32(col_trig_col.Value);
+
+		// --- persistent per-frame drag state ---
+		struct { bool x = false, y = false; } static drag;
+
+		bool lmb_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+		bool lmb_dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left,1.0f);
+		bool lmb_released = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+		bool double_clicked = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+		bool ctrl_down = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl);
+		bool alt_down = ImGui::IsKeyDown(ImGuiKey_LeftAlt) || ImGui::IsKeyDown(ImGuiKey_RightAlt);
+		bool shift_down = ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift);
+
+		auto clampf = [](float v, float a, float b) { return v < a ? a : (v > b ? b : v); };
+
+		// ---------------- TOP (X trigger) ----------------
+		{
+			float s = 10.0f;
+			float x, y;
+			bool on_screen = (px.x >= plot_min.x && px.x <= plot_max.x);
+			bool scaled_font = false;
+
+			if (on_screen) { x = px.x; y = plot_min.y; }
+			else if (px.x < plot_min.x) { // left indicator
+				float ss = 3.f * expf(100.f * float(trig_x - lim.X.Min)) + 5.f;
+				s = ss; x = plot_min.x - s * 0.5f; y = plot_min.y;
+				ImGui::SetWindowFontScale(s / 10.0f); scaled_font = true;
+			}
+			else {                      // right indicator
+				float ss = 3.f * expf(100.f * float(lim.X.Max - trig_x)) + 5.f;
+				s = ss; x = plot_max.x + s * 0.5f; y = plot_min.y;
+				ImGui::SetWindowFontScale(s / 10.0f); scaled_font = true;
+			}
+
+			// Triangle + "T"
+			ImVec2 p1(x, y + s), p2(x - 0.5f * s, y), p3(x + 0.5f * s, y);
+			draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
+			ImVec2 ts = ImGui::CalcTextSize("T");
+			draw_list->AddText(ImVec2(x - ts.x * 0.5f, y - ts.y + 4.f), col_trig, "T");
+
+			
+
+
+			// Hit box (larger than triangle)
+			ImRect hit(ImVec2(x - 0.6f * s - 4.f, y - s - 4.f),
+				ImVec2(x + 0.6f * s + 4.f, y + s + 4.f));
+			bool hovered = hit.Contains(io.MousePos) && ImPlot::IsPlotHovered();
+			if (hovered && !drag.y)
+			{
+				ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+			}
+			if (ctrl_down) DrawEdgeIndicatorX(draw_list, x, y, ts, trigger_type, col_trig);
+			if (hovered && shift_down)
+			{
+				osc_control->Trigger = !osc_control->Trigger; // if ctrl + double clicked, toggle trigger
+			}
+			else if (hovered && double_clicked) // if x trigger left double clicked, set to 0s
+			{
+				printf("X trigger double clicked, set to 0s\n");
+				trig_x = 0.0;
+				next_resetX = false;
+				next_resetY = false;
+				next_autofitX = false;
+				next_autofitY = false;
+			}
+			else if (hovered && lmb_clicked && ctrl_down)
+			{
+				ToggleTriggerTypeComboType(&osc_control->TriggerTypeComboCurrentItem);
+			}
+			else if (hovered && lmb_clicked && alt_down)
+			{
+				ToggleTriggerTypeComboChannel(&osc_control->TriggerTypeComboCurrentItem);
+			}
+			else if (hovered && lmb_clicked && !drag.y) drag.x = true;
+
+			// Dragging
+			if (drag.x && lmb_dragging) {
+				float mx = clampf(io.MousePos.x, plot_min.x, plot_max.x);
+				ImPlotPoint plot_xy = ImPlot::PixelsToPlot(ImVec2(mx, plot_min.y));
+				trig_x = ImClamp(double(plot_xy.x), lim.X.Min, lim.X.Max);
+			}
+			if (drag.x && lmb_released) drag.x = false;
+
+			if (scaled_font) ImGui::SetWindowFontScale(1.0f);
+		}
+
+		// ---------------- RIGHT (Y trigger) ----------------
+		{
+			float s = 10.0f;
+			float x, y;
+			bool on_screen = (px.y >= plot_min.y && px.y <= plot_max.y);
+			bool scaled_font = false;
+
+			if (on_screen) { x = plot_max.x; y = px.y; }
+			else if (px.y > plot_max.y) { // bottom indicator
+				float ss = 3.f * expf(1.f * float(trig_y - lim.Y.Min)) + 5.f;
+				s = ss; x = plot_max.x; y = plot_max.y + s * 0.5f;
+				ImGui::SetWindowFontScale(s / 10.0f); scaled_font = true;
+			}
+			else {                      // top indicator
+				float ss = 3.f * expf(1.f * float(lim.Y.Max - trig_y)) + 5.f;
+				s = ss; x = plot_max.x; y = plot_min.y - s * 0.5f;
+				ImGui::SetWindowFontScale(s / 10.0f); scaled_font = true;
+			}
+
+			ImVec2 p1(x - s, y), p2(x, y - 0.5f * s), p3(x, y + 0.5f * s);
+			draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
+			ImVec2 ts = ImGui::CalcTextSize("T");
+			draw_list->AddText(ImVec2(x, y - ts.y * 0.5f), col_trig, "T");
+
+			// Draw Automatic indicator
+			if (osc_control->AutoTriggerLevel)
+			{
+				ImGui::SetWindowFontScale(s / 17.f); scaled_font = true;
+				ImVec2 at_ts = ImGui::CalcTextSize("A");
+				ImVec2 at_text_pos(x + 2.f, y - ts.y * 0.5f - at_ts.y+1.f);
+				ImVec2 at_circle_pos(at_text_pos.x + 0.5 * at_ts.x - 0.5f, at_text_pos.y + 0.5 * at_ts.y + 0.5f);
+				draw_list->AddText(ImVec2(at_text_pos.x, at_text_pos.y), col_trig, "A");
+				draw_list->AddCircle(ImVec2(at_circle_pos.x, at_circle_pos.y), 0.4f * at_ts.y, col_trig);
+			}
+
+			ImRect hit(ImVec2(x - s - 4.f, y - s - 4.f),
+				ImVec2(x + ts.x + 4.f, y + s + 4.f));
+			bool hovered = hit.Contains(io.MousePos) && ImPlot::IsPlotHovered();
+			if (hovered && !drag.x)
+			{
+				ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+			}
+			if (ctrl_down) DrawEdgeIndicatorY(draw_list, x, y, ts, trigger_type, col_trig);
+			if (hovered && shift_down && lmb_clicked)
+			{
+				osc_control->Trigger = !osc_control->Trigger; // if ctrl + double clicked, toggle trigger
+			}
+			else if (hovered && double_clicked) // if y trigger left double clicked, toggel automode
+			{
+				osc_control->AutoTriggerLevel = !osc_control->AutoTriggerLevel;
+				next_resetX = false;
+				next_resetY = false;
+				next_autofitX = false;
+				next_autofitY = false;
+			}
+			else if (hovered && lmb_clicked && ctrl_down)
+			{
+				ToggleTriggerTypeComboType(&osc_control->TriggerTypeComboCurrentItem);
+			}
+			else if (hovered && lmb_clicked && alt_down)
+			{
+				ToggleTriggerTypeComboChannel(&osc_control->TriggerTypeComboCurrentItem);
+			}
+			else if (hovered && lmb_clicked && !drag.x) drag.y = true;
+			if (drag.y && lmb_dragging) {
+				osc_control->AutoTriggerLevel = false;
+				float my = clampf(io.MousePos.y, plot_min.y, plot_max.y);
+				ImPlotPoint plot_xy = ImPlot::PixelsToPlot(ImVec2(plot_min.x, my));
+				trig_y = ImClamp(double(plot_xy.y), lim.Y.Min, lim.Y.Max);
+			}
+			if (drag.y && lmb_released) drag.y = false;
+
+			if (scaled_font) ImGui::SetWindowFontScale(1.0f);
+		}
+
+		// Write back
+		trigger_time_plot = trig_x;
+		osc_control->TriggerLevel.setLevel(trig_y);
+
+		// Publish current drag state so BeginPlot can apply flags next frame
+		trig_dragging = drag.x || drag.y;
+	}
+	void DrawEdgeIndicatorX(ImDrawList* draw_list, float x, float y, ImVec2 ts, constants::TriggerType trigger_type, ImU32 col_trig)
+	{
+		// Draw Trigger Type indicator
+		if (trigger_type == constants::TriggerType::RISING_EDGE)
+		{
+			ImVec2 tt_indicator_size(ts.x * 0.8, ts.y - 10.f);
+			ImVec2 tt_indicator_pos(x - ts.x * 0.5f - tt_indicator_size.x + -4.0f, y - ts.y + 8.f);
+			ImVec2 p1_line(tt_indicator_pos.x, tt_indicator_pos.y + tt_indicator_size.y),
+				p2_line(tt_indicator_pos.x + tt_indicator_size.x * 0.5f, tt_indicator_pos.y + tt_indicator_size.y),
+				p3_line(tt_indicator_pos.x + tt_indicator_size.x * 0.5f, tt_indicator_pos.y),
+				p4_line(tt_indicator_pos.x + tt_indicator_size.x, tt_indicator_pos.y);
+			draw_list->AddLine(p1_line, p2_line, col_trig, 1.0f);
+			draw_list->AddLine(p2_line, p3_line, col_trig, 1.0f);
+			draw_list->AddLine(p3_line, p4_line, col_trig, 1.0f);
+		}
+		else if (trigger_type == constants::TriggerType::FALLING_EDGE)
+		{
+			ImVec2 tt_indicator_size(ts.x * 0.8, ts.y - 10.f);
+			ImVec2 tt_indicator_pos(x - ts.x * 0.5f - tt_indicator_size.x + -4.0f, y - ts.y + 8.f);
+			ImVec2 p1_line(tt_indicator_pos.x, tt_indicator_pos.y),
+				p2_line(tt_indicator_pos.x + tt_indicator_size.x * 0.5f, tt_indicator_pos.y),
+				p3_line(tt_indicator_pos.x + tt_indicator_size.x * 0.5f, tt_indicator_pos.y + tt_indicator_size.y),
+				p4_line(tt_indicator_pos.x + tt_indicator_size.x, tt_indicator_pos.y + tt_indicator_size.y);
+			draw_list->AddLine(p1_line, p2_line, col_trig, 1.0f);
+			draw_list->AddLine(p2_line, p3_line, col_trig, 1.0f);
+			draw_list->AddLine(p3_line, p4_line, col_trig, 1.0f);
+		}
+	}
+	void DrawEdgeIndicatorY(ImDrawList* draw_list, float x, float y, ImVec2 ts, constants::TriggerType trigger_type, ImU32 col_trig)
+	{
+		// Draw Trigger Type indicator
+		ImVec2 tt_indicator_size(ts.x * 0.8, ts.y - 10.f);
+		ImVec2 tt_indicator_pos(x + 1.0f, y + ts.y * 0.5f + 1.f);
+		if (trigger_type == constants::TriggerType::RISING_EDGE)
+		{
+			ImVec2 p1_line(tt_indicator_pos.x, tt_indicator_pos.y + tt_indicator_size.y),
+				p2_line(tt_indicator_pos.x + tt_indicator_size.x * 0.5f, tt_indicator_pos.y + tt_indicator_size.y),
+				p3_line(tt_indicator_pos.x + tt_indicator_size.x * 0.5f, tt_indicator_pos.y),
+				p4_line(tt_indicator_pos.x + tt_indicator_size.x, tt_indicator_pos.y);
+			draw_list->AddLine(p1_line, p2_line, col_trig, 1.0f);
+			draw_list->AddLine(p2_line, p3_line, col_trig, 1.0f);
+			draw_list->AddLine(p3_line, p4_line, col_trig, 1.0f);
+		}
+		else if (trigger_type == constants::TriggerType::FALLING_EDGE)
+		{
+			ImVec2 p1_line(tt_indicator_pos.x, tt_indicator_pos.y),
+				p2_line(tt_indicator_pos.x + tt_indicator_size.x * 0.5f, tt_indicator_pos.y),
+				p3_line(tt_indicator_pos.x + tt_indicator_size.x * 0.5f, tt_indicator_pos.y + tt_indicator_size.y),
+				p4_line(tt_indicator_pos.x + tt_indicator_size.x, tt_indicator_pos.y + tt_indicator_size.y);
+			draw_list->AddLine(p1_line, p2_line, col_trig, 1.0f);
+			draw_list->AddLine(p2_line, p3_line, col_trig, 1.0f);
+			draw_list->AddLine(p3_line, p4_line, col_trig, 1.0f);
+		}
+	}
+
+	void DrawTriggerCombo()
+	{
+
+	}
+
 
 	
 
@@ -689,6 +895,16 @@ private:
 protected:
 	ImVec2 size;
 	bool paused = false;
+	bool trig_dragging = false;
+	bool trig_double_clicked = false;
+	bool next_resetX = false;
+	bool next_resetY = false;
+	bool next_autofitY = false;
+	bool next_autofitX = false;
+	double next_autofitX_min = 0;
+	double next_autofitX_max = 0;
+	double next_autofitY_min = 0;
+	double next_autofitY_max = 0;
 	double init_time_range_lower = -0.015;
 	double init_time_range_upper = 0.015;
 	double init_voltage_range_lower = -1.0;

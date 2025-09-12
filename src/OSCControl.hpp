@@ -154,9 +154,9 @@ public:
 			ImGui::TableSetupColumn("Three", ImGuiTableColumnFlags_WidthFixed, labWidth2);
 			ImGui::TableSetupColumn("Four", ImGuiTableColumnFlags_WidthFixed, controlWidth);
 
-			// Trigger 1 Properties
+			// Trigger Properties
 			ImGui::TableNextColumn();
-			ImGui::Text("Trigger (OSC1)");
+			ImGui::Text("Trigger");
 			ImGui::TableNextColumn();
 			ToggleSwitch((label + "Trigger1_toggle").c_str(), &Trigger, GenColour);
 			ImGui::TableNextColumn();

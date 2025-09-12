@@ -204,8 +204,40 @@ int MetricFormatter(double value, char* buff, int size, void* data) {
 	}
 	return snprintf(buff, size, "%g %s%s", value / v[6], p[6], unit);
 }
-
-
+void ToggleTriggerTypeComboChannel(int* ComboCurrentItem)
+{
+	switch (*ComboCurrentItem)
+	{
+		case 0:
+			*ComboCurrentItem = 2;
+			break;
+		case 1:
+			*ComboCurrentItem = 3;
+			break;
+		case 2:
+			*ComboCurrentItem = 0;
+			break;
+		case 3:
+			*ComboCurrentItem = 1;
+	}
+}
+void ToggleTriggerTypeComboType(int* ComboCurrentItem)
+{
+	switch (*ComboCurrentItem)
+	{
+	case 0:
+		*ComboCurrentItem = 1;
+		break;
+	case 1:
+		*ComboCurrentItem = 0;
+		break;
+	case 2:
+		*ComboCurrentItem = 3;
+		break;
+	case 3:
+		*ComboCurrentItem = 2;
+	}
+}
 
 
 
