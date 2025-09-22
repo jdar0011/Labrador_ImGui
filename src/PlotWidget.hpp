@@ -14,6 +14,17 @@
 #include <math.h>
 #include "ControlWidget.hpp"
 
+#ifdef _DEBUG
+#undef _DEBUG
+#define PY_SSIZE_T_CLEAN
+#include <python.h>
+#define _DEBUG
+#else
+#define PY_SSIZE_T_CLEAN
+#include <python.h>
+#endif
+
+
 /// <summary>
 /// Renders oscilloscope data
 /// </summary>
@@ -240,7 +251,14 @@ public:
 			}
 			// Set OscData Time Vector to match the current X-axis
 			OSC2Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
-			// Plot cursor 1
+			// Plot Math Signal
+			double math_time_step = OSC1Data.GetTimeStep();
+			std::string expr = osc_control->MathText;
+			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2, math_time_step);
+			std::vector<double> time_math = time_osc1.size() >= time_osc2.size() ? time_osc1 : time_osc2;
+			ImPlot::SetNextLineStyle(osc_control->MathColour.Value);
+			ImPlot::PlotLine("##Math", time_osc1.data(), math_data.data(),math_data.size());
+			// Plot cursors
 			if (osc_control->Cursor1toggle)
 				drawCursor(1, &cursor1_x, &cursor1_y);
 			if (osc_control->Cursor2toggle)
@@ -608,7 +626,6 @@ public:
 			}
 			else if (hovered && double_clicked) // if x trigger left double clicked, set to 0s
 			{
-				printf("X trigger double clicked, set to 0s\n");
 				trig_x = 0.0;
 				next_resetX = false;
 				next_resetY = false;
@@ -773,11 +790,11 @@ public:
 		}
 	}
 
+	// Draw a Combo when right clicking on the trigger (if there is time)
 	void DrawTriggerCombo()
 	{
 
 	}
-
 
 	
 

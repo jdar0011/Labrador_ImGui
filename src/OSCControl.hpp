@@ -6,6 +6,7 @@
 #include "nfd.h"
 #include <cstring>
 #include <cstddef>
+#include "imgui_stdlib.h"
 
 /// <summary>Oscilloscope Control Widget
 /// </summary>
@@ -61,10 +62,13 @@ public:
 	bool AutoTriggerHysteresisToggle = true;
 	bool HysteresisDisplayOptionEnabled = false;
 
+	std::string MathText;
+
 	// Public consts
 	ImColor OSC1Colour = colourConvert(constants::OSC1_ACCENT);
 	ImColor OSC2Colour = colourConvert(constants::OSC2_ACCENT);
 	ImColor GenColour = colourConvert(constants::GEN_ACCENT);
+	ImColor MathColour = colourConvert(constants::MATH_ACCENT);
 	ImColor Green = ImColor(float(20./255), float(143./255), float(0), float(1));
 	ImColor Red = ImColor(float(143./255), float(0. / 255), float(0), float(1));
 
@@ -295,6 +299,15 @@ public:
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(OSCWritePathComboWidth);
 		ImGui::Combo("##OSC2WritePathCombo",&OSC2WritePathComboCurrentItem,OSCWritePathComboList,IM_ARRAYSIZE(OSCWritePathComboList));
+
+
+		ImGui::SeparatorText("Signal Analysis");
+		ImGui::Text("Math Mode");
+		ImGui::InputTextWithHint("##MathString","Enter math string...", &MathText);
+		
+		
+
+
 	}
 
 

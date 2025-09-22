@@ -12,6 +12,24 @@
 #include <vector>
 #define _USE_MATH_DEFINES
 #include "math.h"
+// include python.h with debug mode workaround
+#define PY_SSIZE_T_CLEAN
+#ifdef _DEBUG
+#undef _DEBUG
+#include <python.h>
+#define _DEBUG
+#else
+#include <python.h>
+#endif
+// include windows.h with NOMINMAX to prevent conflicts with std::min and std::max
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace constants
 {
@@ -25,6 +43,7 @@ constexpr float OSC_ACCENT[3] = { 0.4, 0.4, 0.4 };
 constexpr float OSC1_ACCENT[3] = { 230. / 255, 207. / 255, 2. / 255 };
 constexpr float OSC2_ACCENT[3] = { 255. / 255, 123. / 255, 250. / 255 };
 constexpr float GEN_ACCENT[3] = { 150. / 255, 150. / 255, 150. / 255 };
+constexpr float MATH_ACCENT[3] = { 4*18. / 255, 4*33. / 255, 4*69. / 255 };
 
     // Signal Generator Preview Waves
 constexpr char* wavetypes[4] = { "Sine", "Square", "Sawtooth", "Triangle" };
@@ -131,4 +150,11 @@ std::string NumToString(double num,int precision);
 int MetricFormatter(double value, char* buff, int size, void* data);
 void ToggleTriggerTypeComboChannel(int* ComboCurrentItem);
 void ToggleTriggerTypeComboType(int* ComboCurrentItem);
+void InitEmbeddedPythonFromExeDir();
+PyObject* vec_to_list(const std::vector<double>& v);
+std::vector<double>
+EvalUserExpression(const std::string& user_expr_utf8,
+	const std::vector<double>& osc1,
+	const std::vector<double>& osc2,
+	double dt);
 #endif

@@ -122,6 +122,10 @@ public:
 	{
 		return time;
 	}
+	double GetTimeStep()
+	{
+		return time_step;
+	}
 	void SetTime(double time_min, double time_max)
 	{
 		this->time_min = time_min;
