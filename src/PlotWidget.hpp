@@ -14,16 +14,6 @@
 #include <math.h>
 #include "ControlWidget.hpp"
 
-#ifdef _DEBUG
-#undef _DEBUG
-#define PY_SSIZE_T_CLEAN
-#include <python.h>
-#define _DEBUG
-#else
-#define PY_SSIZE_T_CLEAN
-#include <python.h>
-#endif
-
 
 /// <summary>
 /// Renders oscilloscope data
@@ -254,8 +244,10 @@ public:
 			// Plot Math Signal
 			double math_time_step = OSC1Data.GetTimeStep();
 			std::string expr = osc_control->MathText;
-			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2, math_time_step);
+			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2);
 			std::vector<double> time_math = time_osc1.size() >= time_osc2.size() ? time_osc1 : time_osc2;
+			MathData.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max, time_math);
+			MathData.SetData(math_data);
 			ImPlot::SetNextLineStyle(osc_control->MathColour.Value);
 			ImPlot::PlotLine("##Math", time_osc1.data(), math_data.data(),math_data.size());
 			// Plot cursors
@@ -929,6 +921,7 @@ protected:
 	OSCControl* osc_control;
 	OscData OSC1Data = OscData(1);
 	OscData OSC2Data = OscData(2);
+	OscData MathData = OscData(0);
 	double cursor1_x = -1000;
 	double cursor1_y = -1000;
 	double cursor2_x = -1000;

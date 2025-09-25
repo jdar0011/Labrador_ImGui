@@ -91,15 +91,15 @@
     <ClCompile>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>.\libs;.\libs\fftw;.\libs\glfw\include;.\libs\libusb;.\libs\nfd;.\libs\usynergy;.\libs\imgui;.\libs\librador;.\backends;.\misc\cpp;.\libs\exprtk;.\libs\python;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\libs;.\libs\fftw;.\libs\glfw\include;.\libs\libusb;.\libs\nfd;.\libs\usynergy;.\libs\imgui;.\libs\librador;.\backends;.\misc\cpp;.\libs\exprtk;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>.\libs\libusb;.\libs\fftw;.\libs\glfw\lib-vc2010-64;.\libs\nfd;.\libs\python;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glfw3.lib;libusb-1.0.lib;libfftw3-3.lib;nfd_d.lib;python312.lib;python3.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>.\libs\libusb;.\libs\fftw;.\libs\glfw\lib-vc2010-64;.\libs\nfd;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glfw3.lib;libusb-1.0.lib;libfftw3-3.lib;nfd_d.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib</IgnoreSpecificDefaultLibraries>
     </Link>
     <PostBuildEvent>
@@ -173,6 +173,7 @@ xcopy /y /d ".\libs\fftw\libfftw3-3.dll" "$(OutDir)"</Command>
     <ClInclude Include="backends\imgui_impl_opengl3.h" />
     <ClInclude Include="backends\imgui_impl_opengl3_loader.h" />
     <ClInclude Include="libs\emscripten\emscripten_mainloop_stub.h" />
+    <ClInclude Include="libs\exprtk\exprtk.hpp" />
     <ClInclude Include="libs\fftw\fftw3.h" />
     <ClInclude Include="libs\glfw\include\glfw\glfw3.h" />
     <ClInclude Include="libs\glfw\include\glfw\glfw3native.h" />

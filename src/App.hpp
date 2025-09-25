@@ -136,9 +136,6 @@ class App : public AppBase<App>
 		loadREADME();
 		
 		SetGlobalStyle();
-
-		// Setup Python
-		InitEmbeddedPythonFromExeDir();
     }
 
     // Anything that needs to be called cyclically INSIDE of the main application loop

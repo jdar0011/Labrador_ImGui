@@ -118,6 +118,21 @@ public:
 			    { return n++ * time_step + local_time_start; });
 		}
 	}
+	// SetData overload to set data directly (used for math channel)
+	void SetData(std::vector<double> data)
+	{
+		if (!paused)
+		{
+			this->data = data;
+			this->time_step = time_window / data.size();
+			double time_step = time_window / data.size();
+			time.resize(data.size());
+			auto& local_time_start = time_min;
+			std::generate(time.begin(), time.end(),
+				[n = 0, &time_step, &local_time_start]() mutable
+				{ return n++ * time_step + local_time_start; });
+		}
+	}
 	std::vector<double> GetTime()
 	{
 		return time;
@@ -131,6 +146,22 @@ public:
 		this->time_min = time_min;
 		this->time_max = time_max;
 		time_window = time_max - time_min;
+	}
+	// SetTime overload to set time directly (used for math channel)
+	void SetTime(double time_min, double time_max, std::vector<double> time)
+	{
+		this->time_min = time_min;
+		this->time_max = time_max;
+		time_window = time_max - time_min;
+		this->time = time;
+		if (time.size() != 0)
+		{
+			this->time_step = time[1] - time[0];
+		}
+		else
+		{
+			this->time_step = 0;
+		}
 	}
 	void SetTriggerOn(bool trigger)
 	{

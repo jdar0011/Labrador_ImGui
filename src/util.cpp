@@ -238,115 +238,21 @@ void ToggleTriggerTypeComboType(int* ComboCurrentItem)
 		*ComboCurrentItem = 2;
 	}
 }
-
-// Call once somewhere early; or fold into your app init.
-void InitEmbeddedPythonFromExeDir()
+std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2)
 {
-	static bool done = false;
-	if (done) return;
-
-	wchar_t buf[MAX_PATH];
-	GetModuleFileNameW(nullptr, buf, MAX_PATH);
-	fs::path exe = fs::path(buf).parent_path();
-
-	// If you use a _pth file with "." you can skip this, but explicit is fine:
-	static std::wstring home = exe.wstring();
-	Py_SetPythonHome(home.c_str());
-
-	// Build path: <exe> ; <exe>\python312.zip (or 311) ; <exe>\site-packages ; <exe>
-	fs::path zip = fs::exists(exe / L"python312.zip") ? exe / L"python312.zip"
-		: fs::exists(exe / L"python311.zip") ? exe / L"python311.zip"
-		: fs::path();
-	static std::wstring path = exe.wstring()
-		+ (zip.empty() ? L"" : (L";" + zip.wstring()))
-		+ L";" + (exe / L"site-packages").wstring()
-		+ L";" + exe.wstring(); // ensure '.' is on sys.path
-	Py_SetPath(path.c_str());
-
-	Py_Initialize();
-	if (!Py_IsInitialized())
-		throw std::runtime_error("Failed to initialize Python");
-	done = true;
+	int N = osc1.size() > osc2.size() ? osc1.size() : osc2.size();
+	std::vector<double> result(N);
+	exprtk::symbol_table<double> sym;
+	sym.add_vector("osc1", osc1);
+	sym.add_vector("osc2", osc2);
+	sym.add_vector("result", result);
+	sym.add_constants();
+	std::string src = "result := (" + user_text + ");";
+	exprtk::expression<double> expr;
+	expr.register_symbol_table(sym);
+	exprtk::parser<double> parser;
+	parser.compile(src, expr);
+	expr.value();
+	return result;
 }
-
-// helper: std::vector<double> -> Python list (NumPy will coerce)
-PyObject* vec_to_list(const std::vector<double>& v)
-{
-	PyObject* list = PyList_New(static_cast<Py_ssize_t>(v.size()));
-	if (!list) return nullptr;
-	for (Py_ssize_t i = 0; i < static_cast<Py_ssize_t>(v.size()); ++i) {
-		PyObject* f = PyFloat_FromDouble(v[static_cast<size_t>(i)]);
-		if (!f) { Py_DECREF(list); return nullptr; }
-		PyList_SET_ITEM(list, i, f); // steals ref
-	}
-	return list;
-}
-
-// Main entry you call: evaluate user expression through lab_math.py
-std::vector<double>
-EvalUserExpression(const std::string& user_expr_utf8,
-	const std::vector<double>& osc1,
-	const std::vector<double>& osc2,
-	double dt)
-{
-
-	// Import lab_math module
-	PyObject* mod = PyImport_ImportModule("lab_math");  // new ref
-	if (!mod) { PyErr_Print(); throw std::runtime_error("Cannot import lab_math.py"); }
-
-	PyObject* fn = PyObject_GetAttrString(mod, "eval_expr"); // new ref
-	if (!fn || !PyCallable_Check(fn)) {
-		Py_XDECREF(fn); Py_DECREF(mod);
-		PyErr_Print();
-		throw std::runtime_error("lab_math.eval_expr not found/callable");
-	}
-
-	// Build arguments: (expr, osc1, osc2, dt, allow_implicit_dt=True)
-	PyObject* expr = PyUnicode_FromStringAndSize(user_expr_utf8.c_str(),
-		static_cast<Py_ssize_t>(user_expr_utf8.size()));
-	PyObject* py_osc1 = vec_to_list(osc1);
-	PyObject* py_osc2 = vec_to_list(osc2);
-	PyObject* py_dt = PyFloat_FromDouble(dt);
-	PyObject* py_allow = Py_True; Py_INCREF(py_allow);
-
-	if (!expr || !py_osc1 || !py_osc2 || !py_dt) {
-		Py_XDECREF(expr); Py_XDECREF(py_osc1); Py_XDECREF(py_osc2); Py_XDECREF(py_dt);
-		Py_DECREF(py_allow); Py_DECREF(fn); Py_DECREF(mod);
-		PyErr_Print();
-		throw std::runtime_error("Failed to build Python args");
-	}
-
-	PyObject* args = PyTuple_New(5);
-	PyTuple_SET_ITEM(args, 0, expr);    // steals refs
-	PyTuple_SET_ITEM(args, 1, py_osc1);
-	PyTuple_SET_ITEM(args, 2, py_osc2);
-	PyTuple_SET_ITEM(args, 3, py_dt);
-	PyTuple_SET_ITEM(args, 4, py_allow);
-
-	PyObject* result = PyObject_CallObject(fn, args); // new ref
-	Py_DECREF(args);
-	Py_DECREF(fn);
-	Py_DECREF(mod);
-
-	if (!result) {
-		PyErr_Print();
-		//throw std::runtime_error("eval_expr raised an exception");
-	}
-
-	// Convert result to contiguous buffer of doubles via buffer protocol
-	Py_buffer view{};
-	if (0 != PyObject_GetBuffer(result, &view, PyBUF_CONTIG_RO)) {
-		Py_DECREF(result);
-		PyErr_Print();
-		//throw std::runtime_error("Result is not a buffer/array");
-	}
-
-	const size_t n = static_cast<size_t>(view.len / sizeof(double));
-	std::vector<double> out(n);
-	std::memcpy(out.data(), view.buf, n * sizeof(double));
-	PyBuffer_Release(&view);
-	Py_DECREF(result);
-	return out;
-}
-
 

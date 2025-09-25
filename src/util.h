@@ -12,24 +12,8 @@
 #include <vector>
 #define _USE_MATH_DEFINES
 #include "math.h"
-// include python.h with debug mode workaround
-#define PY_SSIZE_T_CLEAN
-#ifdef _DEBUG
-#undef _DEBUG
-#include <python.h>
-#define _DEBUG
-#else
-#include <python.h>
-#endif
-// include windows.h with NOMINMAX to prevent conflicts with std::min and std::max
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <filesystem>
+#include "exprtk.hpp"
 
-namespace fs = std::filesystem;
 
 namespace constants
 {
@@ -150,11 +134,5 @@ std::string NumToString(double num,int precision);
 int MetricFormatter(double value, char* buff, int size, void* data);
 void ToggleTriggerTypeComboChannel(int* ComboCurrentItem);
 void ToggleTriggerTypeComboType(int* ComboCurrentItem);
-void InitEmbeddedPythonFromExeDir();
-PyObject* vec_to_list(const std::vector<double>& v);
-std::vector<double>
-EvalUserExpression(const std::string& user_expr_utf8,
-	const std::vector<double>& osc1,
-	const std::vector<double>& osc2,
-	double dt);
+std::vector<double> EvalUserExpression(std::string expr, std::vector<double> osc1, std::vector<double> osc2);
 #endif
