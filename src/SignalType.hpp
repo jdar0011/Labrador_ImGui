@@ -86,7 +86,7 @@ public:
 		ImPlot::Annotation(period*0.5, 0, ImVec4(0, 0, 0, 0), ImVec2(0, -5), true,
 			"Vpp = %.2f V", amplitude.getValue());
 
-		float per_label_x[2] = { 0, period };
+		float per_label_x[2] = { 0, (float) period };
 		float per_label_y[2] = { 0.0f, 0.0f };
 
 		ImPlot::PlotLine(("##" + label + "_per").c_str(), per_label_x, per_label_y, 2);

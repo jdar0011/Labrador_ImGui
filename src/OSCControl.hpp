@@ -304,10 +304,6 @@ public:
 		ImGui::SeparatorText("Signal Analysis");
 		ImGui::Text("Math Mode");
 		ImGui::InputTextWithHint("##MathString","Enter math string...", &MathText);
-		
-		
-
-
 	}
 
 

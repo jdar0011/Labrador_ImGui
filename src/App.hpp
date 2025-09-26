@@ -111,13 +111,13 @@ class App : public AppBase<App>
 		int w, h;
 
 		// All textures have the same width and height (for now)
-		bool psu_ret = LoadTextureFromFile(".\\misc\\media\\psu-pinout.png",
+		bool psu_ret = LoadTextureFromFile("./misc/media/psu-pinout.png",
 			&psu_tmp_texture, &w, &h);
 
-		bool sg_ret = LoadTextureFromFile(".\\misc\\media\\sg-pinout.png",
+		bool sg_ret = LoadTextureFromFile("./misc/media/sg-pinout.png",
 			&sg_tmp_texture, &w, &h);
 
-		bool osc_ret = LoadTextureFromFile(".\\misc\\media\\osc-pinout.png",
+		bool osc_ret = LoadTextureFromFile("./misc/media/osc-pinout.png",
 			&osc_tmp_texture, &w, &h);
 
 		PSUWidget.setPinoutImg((intptr_t)psu_tmp_texture, w, h);
