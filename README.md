@@ -17,6 +17,10 @@
 ### macOS
 - Beta Release (October 2025) found [here](https://github.com/jdar0011/Labrador_ImGui/releases/tag/Beta)
 - Download and open .dmg file, code is current **unsigned** so macOS makes it difficult to open
+- After dragging the LabradorImgui.app into the Application folder, running this line of code to allow the app to open (works on macOS Sequoia V15.6)
+```
+sudo xattr -cr /Applications/LabradorImgui.app
+```
 
 # Running the Code
 
