@@ -370,3 +370,4 @@ cmake_install.cmake
 Makefile
 mac_appbundle/
 LabradorImgui.dmg
+.DS_Store
