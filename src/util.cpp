@@ -3,6 +3,41 @@
 #include <sstream>
 #include <iomanip>
 
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#include <limits.h>
+#include <string>
+
+std::string getResourcePath(const std::string& filename) {
+    char exePath[PATH_MAX];
+    uint32_t size = sizeof(exePath);
+
+    if (_NSGetExecutablePath(exePath, &size) != 0) {
+        // Buffer too small (shouldn’t happen with PATH_MAX)
+        return filename; // fallback
+    }
+
+    std::string path(exePath);
+
+    // Find the ".app" part of the path
+    auto pos = path.find(".app");
+    if (pos == std::string::npos) {
+        // Not running inside a bundle -> fallback
+        return "./misc/" + filename;
+    }
+
+    // Trim to "...MyApp.app"
+    std::string bundlePath = path.substr(0, pos + 4);
+
+    // Construct the full resource path
+    return bundlePath + "/Contents/Resources/" + filename;
+}
+#else
+std::string getResourcePath(const std::string& filename) {
+    // On Windows/Linux, just look relative to the exe
+    return "./misc/" + filename;
+}
+#endif
 
 float constants::x_preview[constants::PREVIEW_RES+1];
 float constants::sine_preview[constants::PREVIEW_RES+1];

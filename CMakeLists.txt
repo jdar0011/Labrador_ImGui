@@ -14,7 +14,6 @@ option(USE_STATIC_LIBS "Link libraries statically" ON)
 
 # System packages
 find_package(OpenGL REQUIRED)
-find_package(glfw3 REQUIRED)
 
 # Imported targets
 # Function to create imported static library targets
@@ -34,7 +33,7 @@ endfunction()
 add_static_library(libusb "libusb/libusb-1.0.a" "libusb/")
 add_static_library(fftw "fftw/libfftw3.a" "fftw/")
 add_static_library(nfd "nfd/libnfd.a" "nfd/")
-
+add_static_library(glfw "glfw/libglfw3.a" "glfw/include")
 # Define Sources
 set(IMGUI_DIR libs/imgui)
 set(LIBRADOR_DIR libs/librador)
@@ -67,7 +66,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${EXTERNAL_DIR}/exprtk
     ${IMGUI_DIR}/
     ${LIBRADOR_DIR}/
-    ${EXTERNAL_DIR}/glfw/include/
+    # ${EXTERNAL_DIR}/glfw/include/
     src/
     ${EXTERNAL_DIR}/
 )
@@ -76,6 +75,7 @@ target_link_libraries(${PROJECT_NAME}
     libusb
     fftw
     nfd
+    glfw
 )
 
 if(APPLE)
@@ -86,7 +86,6 @@ if(APPLE)
     find_library(APPKIT_LIBRARY AppKit)
     find_library(SECURITY_LIBRARY Security)
     target_link_libraries(${PROJECT_NAME}
-        glfw
         ${OPENGL_LIBRARY}
         ${COCOA_LIBRARY} 
         ${IOKIT_LIBRARY} 

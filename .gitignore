@@ -366,3 +366,7 @@ FodyWeavers.xsd
 build/
 CMakeFiles/
 CMakeCache.txt
+cmake_install.cmake
+Makefile
+mac_appbundle/
+LabradorImgui.dmg

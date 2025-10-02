@@ -122,6 +122,7 @@ const std::map<int, maps::ChannelTriggerPair> ComboItemToChannelTriggerPair = {
 };
 }
 
+std::string getResourcePath(const std::string& filename);
 void init_constants();
 void PreviewStyle();
 void SetControlWidgetStyle(const float ac[3]);

@@ -195,11 +195,11 @@ class AppBase
         ImGui_ImplOpenGL3_Init(glsl_version);
         // Add custom fonts
         ImGuiIO& io = ImGui::GetIO();
-        const char* font_path_default;
-        const char* font_path_special;
-        font_path_default = "./misc/fonts/Roboto-Medium.ttf";
-        font_path_special = "./misc/fonts/arial.ttf";
-        ImFont* default_font = io.Fonts->AddFontFromFileTTF(font_path_default, 18.0f,nullptr,io.Fonts->GetGlyphRangesDefault());
+
+        std::string font_path_default = getResourcePath("fonts/Roboto-Medium.ttf");
+        std::string font_path_special = getResourcePath("fonts/arial.ttf");
+
+        ImFont* default_font = io.Fonts->AddFontFromFileTTF(font_path_default.c_str(), 18.0f,nullptr,io.Fonts->GetGlyphRangesDefault());
         if (!default_font)
         {
 #ifndef NDEBUG
@@ -209,8 +209,8 @@ class AppBase
         ImFontConfig config;
 		config.MergeMode = true;
 		ImWchar arrow_ranges[] = { 0x2190, 0x2206, 0 };
-        ImFont* arrow_font = io.Fonts->AddFontFromFileTTF(font_path_special, 24.0f,&config,arrow_ranges);
-        ImFont* greek_font = io.Fonts->AddFontFromFileTTF(font_path_special, 18.0f, &config, io.Fonts->GetGlyphRangesGreek());
+        ImFont* arrow_font = io.Fonts->AddFontFromFileTTF(font_path_special.c_str(), 24.0f,&config,arrow_ranges);
+        ImFont* greek_font = io.Fonts->AddFontFromFileTTF(font_path_special.c_str(), 18.0f, &config, io.Fonts->GetGlyphRangesGreek());
         //ImFont* arrow_font = io.Fonts->AddFontFromFileTTF("./misc/fonts/arial.ttf", 24.0f, nullptr, arrow_ranges);
         if (!arrow_font)
         {
