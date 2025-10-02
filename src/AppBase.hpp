@@ -197,8 +197,10 @@ class AppBase
         ImGuiIO& io = ImGui::GetIO();
         const char* font_path_default;
         const char* font_path_special;
+        const char* font_path_check;
         font_path_default = "./misc/fonts/Roboto-Medium.ttf";
         font_path_special = "./misc/fonts/arial.ttf";
+		font_path_check = "./misc/fonts/seguisym.ttf";
         ImFont* default_font = io.Fonts->AddFontFromFileTTF(font_path_default, 18.0f,nullptr,io.Fonts->GetGlyphRangesDefault());
         if (!default_font)
         {
@@ -209,13 +211,21 @@ class AppBase
         ImFontConfig config;
 		config.MergeMode = true;
 		ImWchar arrow_ranges[] = { 0x2190, 0x2206, 0 };
+		ImWchar check_ranges[] = { 0x2713, 0x2714, 0 };
         ImFont* arrow_font = io.Fonts->AddFontFromFileTTF(font_path_special, 24.0f,&config,arrow_ranges);
         ImFont* greek_font = io.Fonts->AddFontFromFileTTF(font_path_special, 18.0f, &config, io.Fonts->GetGlyphRangesGreek());
+		ImFont* check_font = io.Fonts->AddFontFromFileTTF(font_path_check, 18.0f, &config, check_ranges);
         //ImFont* arrow_font = io.Fonts->AddFontFromFileTTF("./misc/fonts/arial.ttf", 24.0f, nullptr, arrow_ranges);
         if (!arrow_font)
         {
 #ifndef NDEBUG
 			printf("Error loading arrow font");
+#endif
+        }
+        if (!check_font)
+        {
+#ifndef NDEBUG
+            printf("Error loading check font");
 #endif
         }
 

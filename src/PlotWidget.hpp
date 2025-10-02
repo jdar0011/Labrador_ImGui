@@ -58,8 +58,25 @@ public:
 		bool text_window = show_cursor_props || osc_control->SignalPropertiesToggle;
 		ImVec2 region_size = ImGui::GetContentRegionAvail();
 		float row_height = ImGui::GetFrameHeightWithSpacing();
-		ImVec2 plot_size
+		ImVec2 plot_size_total
 		    = ImVec2(region_size.x, region_size.y - (text_window ? 3 * row_height : row_height));
+		ImVec2 plot_size
+			= ImVec2(region_size.x, region_size.y - (text_window ? 3 * row_height : row_height));
+		ImVec2 plot_size_spectrum = ImVec2(0, 0);
+		ImVec2 plot_size_spectrum_magnitude = ImVec2(0, 0);
+		ImVec2 plot_size_spectrum_phase = ImVec2(0, 0);
+		if (osc_control->SpectrumAnalyserOn)
+		{
+			plot_size.y /= 2;
+			plot_size_spectrum = plot_size;
+			plot_size_spectrum_magnitude = plot_size_spectrum;
+			if (osc_control->SpectrumAnalyserPhaseOn)
+			{
+				plot_size_spectrum_phase = plot_size_spectrum;
+				plot_size_spectrum_magnitude.x /= 2;
+				plot_size_spectrum_phase.x /= 2;
+			}
+		}
 		
 		ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(255, 255, 255, 255));
 		UpdateOscData();
@@ -110,7 +127,7 @@ public:
 			// Setup Axis to show units
 			ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"s");
 			ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
-			if (ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) 
+			if (ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 			{
 				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl))
 				{
@@ -122,7 +139,7 @@ public:
 					osc_control->AutofitX = true;
 					osc_control->AutofitY = true;
 				}
-				
+
 			}
 			if (ImPlot::IsAxisHovered(ImAxis_X1) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 			{
@@ -149,8 +166,8 @@ public:
 			// Autofit X so that 3 periods occur in a time window
 			// If there are 2 oscs visible use the one with the larger period
 			// If none are visible, reset to default
-			if (osc_control->AutofitX) 
-			{	
+			if (osc_control->AutofitX)
+			{
 				double T_osc1 = OSC1Data.GetPeriod();
 				double T_osc2 = OSC2Data.GetPeriod();
 				double T = init_time_range_upper;
@@ -180,7 +197,7 @@ public:
 				next_autofitX = true;
 			}
 			// Autofits Y
-			if (osc_control->AutofitY) 
+			if (osc_control->AutofitY)
 			{
 				double osc1_max;
 				double osc2_max;
@@ -227,7 +244,7 @@ public:
 			if (osc_control->DisplayCheckOSC1)
 			{
 				ImPlot::PlotLine("##Osc 1", time_osc1.data(), analog_data_osc1.data(),
-				    analog_data_osc1.size());
+					analog_data_osc1.size());
 			}
 			// Set OscData Time Vector to match the current X-axis
 			OSC1Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
@@ -237,19 +254,31 @@ public:
 			if (osc_control->DisplayCheckOSC2)
 			{
 				ImPlot::PlotLine("##Osc 2", time_osc2.data(), analog_data_osc2.data(),
-				    analog_data_osc2.size());
+					analog_data_osc2.size());
 			}
 			// Set OscData Time Vector to match the current X-axis
 			OSC2Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
 			// Plot Math Signal
 			double math_time_step = OSC1Data.GetTimeStep();
-			std::string expr = osc_control->MathText;
-			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2);
-			std::vector<double> time_math = time_osc1.size() >= time_osc2.size() ? time_osc1 : time_osc2;
-			MathData.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max, time_math);
-			MathData.SetData(math_data);
-			ImPlot::SetNextLineStyle(osc_control->MathColour.Value);
-			ImPlot::PlotLine("##Math", time_osc1.data(), math_data.data(),math_data.size());
+			std::string expr = osc_control->MathControls1.Text;
+			bool parse_success = false;
+			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2, parse_success);
+			if (parse_success)
+			{
+				osc_control->MathControls1.Parsable = true;
+				if (osc_control->MathControls1.On)
+				{
+					std::vector<double> time_math = time_osc1.size() >= time_osc2.size() ? time_osc1 : time_osc2;
+					MathData.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max, time_math);
+					MathData.SetData(math_data);
+					ImPlot::SetNextLineStyle(osc_control->MathColour.Value);
+					ImPlot::PlotLine("##Math", time_osc1.data(), math_data.data(), math_data.size());
+				}
+			}
+			else
+			{
+				osc_control->MathControls1.Parsable = false;
+			}
 			// Plot cursors
 			if (osc_control->Cursor1toggle)
 				drawCursor(1, &cursor1_x, &cursor1_y);
@@ -257,9 +286,13 @@ public:
 				drawCursor(2, &cursor2_x, &cursor2_y);
 
 			DrawAndDragTriggers();
-
+			
 
 			ImPlot::EndPlot();
+		}
+		if (osc_control->SpectrumAnalyserOn)
+		{
+			if(ImPlot::BeginPlot())
 		}
 		
 		// Help Button

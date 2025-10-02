@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cstddef>
 #include "imgui_stdlib.h"
+#include "MiniHLInput.h"
 
 /// <summary>Oscilloscope Control Widget
 /// </summary>
@@ -28,7 +29,7 @@ public:
 	bool OSC1ClipboardCopied = false;
 	bool OSC2ClipboardCopied = false;
 	nfdchar_t* FileExtension = "csv";
-	//
+	// Plot Stuff
 	float OffsetVal = 0.0f;
 	bool ACCoupledCheck = false;
 	bool Paused = false;
@@ -60,9 +61,21 @@ public:
 	bool Cursor2toggle = false;
 	bool SignalPropertiesToggle = false;
 	bool AutoTriggerHysteresisToggle = true;
-	bool HysteresisDisplayOptionEnabled = false;
+	bool HysteresisDisplayOptionEnabled = false; 
+	bool SpectrumAnalyserOn = false;
+	bool SpectrumAnalyserPhaseOn = false;
+	int SpectrumAnalyserSignalComboCurrentItem = 0;
+	// Math stuff
+	struct MathControls
+	{
+		std::string Text{};
+		bool On{ true };
+		bool Visible{ true };
+		bool Parsable{ false };
+	};
+	MathControls MathControls1, MathControls2, MathControls3, MathControls4;
+	
 
-	std::string MathText;
 
 	// Public consts
 	ImColor OSC1Colour = colourConvert(constants::OSC1_ACCENT);
@@ -71,6 +84,8 @@ public:
 	ImColor MathColour = colourConvert(constants::MATH_ACCENT);
 	ImColor Green = ImColor(float(20./255), float(143./255), float(0), float(1));
 	ImColor Red = ImColor(float(143./255), float(0. / 255), float(0), float(1));
+	ImColor SpectrumAnalyserColour = colourConvert(constants::SPECTRUM_ANALYSER_ACCENT);
+
 
 	OSCControl(const char* label, ImVec2 size, const float* borderColor)
 	    : ControlWidget(label, size, borderColor)
@@ -303,7 +318,44 @@ public:
 
 		ImGui::SeparatorText("Signal Analysis");
 		ImGui::Text("Math Mode");
-		ImGui::InputTextWithHint("##MathString","Enter math string...", &MathText);
+		ToggleSwitch((label + "Math1_toggle").c_str(), &MathControls1.On, ImU32(MathColour));
+		ImGui::SameLine();
+		//ImGui::InputTextWithHint("##MathString","Enter math string...", &MathControls1.Text);
+		MiniHLInput("Expression", MathControls1.Text, rules,
+			/*default_text_color=*/ImGui::GetColorU32(ImGuiCol_Text),
+			/*bg_color=*/ImGui::GetColorU32(ImGuiCol_FrameBg));
+		if (!MathControls1.Parsable && MathControls1.Text.length() > 0)
+		{
+			ImGui::SameLine();
+			ImGui::TextColored(ImVec4(1, 0, 0, 1), "!");
+			ImVec2 mn = ImGui::GetItemRectMin();
+			ImVec2 mx = ImGui::GetItemRectMax();
+			float pad = 6.0f;                          // enlarge hit area by 6 px on each side
+			mn.x -= pad; mn.y -= pad; mx.x += pad; mx.y += pad;
+			if (ImGui::IsMouseHoveringRect(mn, mx))
+			{
+				ImGui::BeginTooltip();
+				ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+				ImGui::TextUnformatted("Text not parsable!");
+				ImGui::PopTextWrapPos();
+				ImGui::EndTooltip();
+			}
+		}
+		else if (MathControls1.Text.length())
+		{
+			ImGui::SameLine();
+			ImGui::TextColored(ImVec4(0, 1, 0, 1), u8"\u2714");
+		}
+		
+		// Spectrum Analyzer
+		ImGui::SeparatorText("Spectrum Analyzer");
+		ImGui::Text("On");
+		ImGui::SameLine();
+		ToggleSwitch("##SpectrumAnalyserOn", &SpectrumAnalyserOn, ImU32(SpectrumAnalyserColour));
+		ImGui::Text("Phase On");
+		ImGui::SameLine();
+		ToggleSwitch("##SpectrumAnalyserPhaseOn", &SpectrumAnalyserPhaseOn, ImU32(SpectrumAnalyserColour));
+		
 	}
 
 
@@ -335,4 +387,64 @@ private:
 	float OSCExportButtonWidth = 150;
 	/*const char* KSComboList[2] = { "375 KSPS", "750 KSPS" };
 	const char* AttenComboList[3] = { "1x", "5x", "10x" };*/
+	// Math Mode Stuff
+	//float MathTextWidth = 250;
+	// 1) Define your rules once (colors & tooltips are up to you)
+	std::vector<MiniHLRule> rules = {
+		// Logicals
+		{"and", constants::KeywordColour,  "logical AND",  true, true, false},
+		{"or",  constants::KeywordColour,  "logical OR",   true, true, false},
+		{"xor", constants::KeywordColour,  "exclusive OR", true, true, false},
+		{"not", constants::KeywordColour,  "logical NOT",  true, true, false},
+
+		// Functions
+		{"sin", constants::FunctionColour, "sin(x) (sine, in radians)", true, true, true},
+		{"cos", constants::FunctionColour, "cos(x) (cosine, in radians)", true, true, true},
+		{"tan", constants::FunctionColour, "tan(x) (tangent, in radians)", true, true, true},
+		{"exp", constants::FunctionColour, "exp(x) (exponential, e^x)", true, true, true},
+		{"log", constants::FunctionColour, "log(x) (natural log, ln(x), loge(x), log base e)", true, true, true},
+		{"abs", constants::FunctionColour, "abs(x) (absolute value, |x|)", true, true, true},
+		{"sqrt",constants::FunctionColour, "sqrt(x) (square root, x^(1/2))",true, true, true},
+		{"sgn", constants::FunctionColour, "sgn(x) (sign, returns +1 if x>0, -1 if x<0, and 0 if x==0)", true, true, true},
+		{"floor",constants::FunctionColour,"floor(x) (floor, rounds down to the nearest integer)",true, true, true},
+		{"ceil",constants::FunctionColour, "ceil(x) (rounds up to the nearest integer)", true, true, true},
+		{"round",constants::FunctionColour,"round(x) (rounds to the nearest integer. halfway cases are rounded away from zero)",true, true, true},
+		{"trunc",constants::FunctionColour,"trunc(x) (removes the part right of the decimal place of the decimal number. for x>0, trunc(x)==floor(x). for x<0, trunc(x)==ceil(x)",true, true, true},
+		{"frac",constants::FunctionColour, "frac(x) (keeps only the part right of the decimal place of the decimal number", true, true, true},
+		{"log10",constants::FunctionColour,"log10(x) (log base 10)",true, true, true},
+		{"asin", constants::FunctionColour, "asin(x) (arcsin(x),sin^-1(x), inverse sine)", true, true, true},
+		{"acos", constants::FunctionColour, "acos(x) (arccos(x), cos^-1(x), inverse cosine)", true, true, true},
+		{"atan", constants::FunctionColour, "atan(x) (arctan(x), tan^-1(x), inverse tangent", true, true, true},
+		{"sinh", constants::FunctionColour, "sinh(x) (hyperbolic sine", true, true, true},
+		{"cosh", constants::FunctionColour, "cosh(x) (hyperbolic cosine", true, true, true},
+		{"tanh", constants::FunctionColour, "tanh(x) (hyperbolic tangent", true, true, true},
+		{"pow", constants::FunctionColour,  "pow(x,y) (x^y, x raised to the yth power)	NOTE: does not work for x number, y signal. Instead try exp(log(x)y)", true, true, true},
+
+		// Signals (distinct colors)
+		{"osc1", ImU32(OSC1Colour), "oscilloscope signal 1", true, true, true},
+		{"osc2", ImU32(OSC2Colour), "oscilloscope signal 2", true, true, true},
+
+		// Constants
+		{"pi", constants::NumberColour, "3.14159...", true, true, true},
+		{"e",  constants::NumberColour, "2.71828...", true, true, false},
+
+		// Symbols (not whole words)
+		{"==", constants::SymbolColour, "equality",   false, true, false},
+		{"!=", constants::SymbolColour, "inequality", false, true, false},
+		{"+",  constants::SymbolColour, "plus",       false, true, false},
+		{"-",  constants::SymbolColour, "minus",      false, true, false},
+		{"*",  constants::SymbolColour, "multiply",   false, true, false},
+		{"/",  constants::SymbolColour, "divide",     false, true, false},
+		{"%",  constants::SymbolColour, "modulus",    false, true, false},
+		{"^",  constants::SymbolColour, "power",      false, true, false},
+		{"(",  constants::SymbolColour, "open paren", false, false, false},
+		{")",  constants::SymbolColour, "close paren",false, false, false},
+		{">",  constants::SymbolColour, "greater than", false, true, false},
+		{"<",  constants::SymbolColour, "less than",    false, true, false},
+		{">=", constants::SymbolColour, "greater than or equal",            false, true, false},
+		{"<=", constants::SymbolColour, "less than or equal",            false, true, false},
+		{"!",  constants::SymbolColour, "logical NOT",  false, true, false}
+	};
+	// Spectrum ANalyser stuff
+	const char* SpectrumAnalyserSignalComboList[3] = { "OSC1", "OSC2", "Math" };
 };

@@ -92,6 +92,24 @@
 - DC Coupled pins will read the raw voltages without filtering anything.
 - AC Coupled pins filter out the very low frequency components (DC components) to display only AC signals
 
+#### Math Mode
+Syntax
+- **Literals and Names**
+  - Signals: osc1   osc2
+  - Numbers: 3    -4.2    1e-3
+  - Constants: pi   e
+- **Operators**
+  - Arithmetic: +   -   *   /   %   ^
+  - Comparison: ==    !=    <   <=    >   >=
+  - Logical: and    or    xor   not
+- **Common Functions**
+  - abs(x)    sgn(x)
+  - floor(x)    ceil(x)   round(x)    trunc(x)    frac(x)
+  - sqrt(x)   pow(x,y)
+  - exp(x)    log(x)    log10(x)
+  - sin(x)    cos(x)    tan(x)
+  - asin(x)   acos(x)   atan(x)
+  - sinh(x)   cosh(x)   tanh(x)
 ### Plot Window
 
 #### Controls
@@ -113,5 +131,4 @@
   - Signal properties are calculated based on the plot window data
   - ∆T values represent an average time between trigger events (see more info in Plot Settings)
   - ∆V values represent the difference between Vmin and Vmax
-
 ### End

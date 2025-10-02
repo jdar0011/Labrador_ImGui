@@ -238,7 +238,7 @@ void ToggleTriggerTypeComboType(int* ComboCurrentItem)
 		*ComboCurrentItem = 2;
 	}
 }
-std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2)
+std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2, bool &parse_success)
 {
 	int N = osc1.size() > osc2.size() ? osc1.size() : osc2.size();
 	std::vector<double> result(N);
@@ -251,7 +251,13 @@ std::vector<double> EvalUserExpression(std::string user_text, std::vector<double
 	exprtk::expression<double> expr;
 	expr.register_symbol_table(sym);
 	exprtk::parser<double> parser;
-	parser.compile(src, expr);
+	if (parser.compile(src, expr))
+	{
+		parse_success = true;
+	}
+	else {
+		parse_success = false;
+	}
 	expr.value();
 	return result;
 }
