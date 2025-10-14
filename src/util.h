@@ -28,9 +28,10 @@ constexpr float OSC1_ACCENT[3] = { 230. / 255, 207. / 255, 2. / 255 };
 constexpr float OSC2_ACCENT[3] = { 255. / 255, 123. / 255, 250. / 255 };
 constexpr float GEN_ACCENT[3] = { 150. / 255, 150. / 255, 150. / 255 };
 constexpr float MATH_ACCENT[3] = { 4*18. / 255, 4*33. / 255, 4*69. / 255 };
+constexpr float PLOT_ACCENT[3] = {0., 0., 0.};
 
     // Signal Generator Preview Waves
-constexpr char* wavetypes[4] = { "Sine", "Square", "Sawtooth", "Triangle" };
+constexpr const char* wavetypes[4] = { "Sine", "Square", "Sawtooth", "Triangle" };
 constexpr int PREVIEW_RES = 128;
 extern float x_preview[PREVIEW_RES+1];
 extern float sine_preview[PREVIEW_RES+1];

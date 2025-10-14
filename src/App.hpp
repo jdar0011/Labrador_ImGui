@@ -546,7 +546,7 @@ class App : public AppBase<App>
 	OSCControl OSCWidget
 	    = OSCControl("Plot Settings", ImVec2(0, 0), constants::OSC_ACCENT);
 	PlotWidget PlotWidgetObj 
-		= PlotWidget("Plot Window",ImVec2(0, 0),&OSCWidget);
+		= PlotWidget("Plot Window",ImVec2(0, 0),constants::PLOT_ACCENT, &OSCWidget);
 	HelpWidget TroubleShoot = HelpWidget("Troubleshooting"); // Purely for universal help
 	ControlWidget* widgets[6]
 	    = { &TroubleShoot, &PSUWidget, &SG1Widget, &SG2Widget, &OSCWidget, &PlotWidgetObj };

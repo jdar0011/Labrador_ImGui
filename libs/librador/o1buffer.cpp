@@ -250,7 +250,7 @@ double o1buffer::sampleConvert(int sample, double scope_gain, bool AC, bool twel
     }
 
     if(twelve_bit_multimeter){
-        #pragma message("Hack here.Do not know why this line works, but it does.")
+        // message("Hack here.Do not know why this line works, but it does.") // jdar - changed to comment
         voltageLevel = voltageLevel / 16;
     }
 

@@ -29,8 +29,8 @@ public:
 	/// </summary>
 	/// <param name="label">Name of controller</param>
 	/// <param name="size">Child window size</param>
-	PlotWidget(const char* label, ImVec2 size, OSCControl* osc_control)
-	    : ControlWidget(label, size, accentColour)
+	PlotWidget(const char* label, ImVec2 size, const float* borderColour, OSCControl* osc_control)
+	    : ControlWidget(label, size, borderColour)
 	    , size(size)
 	    , osc_control(osc_control)
 	{
@@ -352,7 +352,7 @@ public:
 		char cursor_label[20];
 		std::string label = std::to_string(id) + ":";
 		// Label is in (ms, V)
-		sprintf(cursor_label, (label + "(%.2f, %.2f)").c_str(), *cx, *cy);
+		snprintf(cursor_label, sizeof(cursor_label), (label + "(%.2f, %.2f)").c_str(), *cx, *cy);
 		ImPlot::PlotText(cursor_label, *cx, *cy, ImVec2(50, -12));
 		ImPlot::SetNextLineStyle(ImVec4(1, 1, 1, 0.8));
 		ImPlot::PlotInfLines((label + "vert").c_str(), cx, 1, ImPlotInfLinesFlags_None);

@@ -192,7 +192,7 @@ public:
 			ImGui::SameLine();
 			ImGui::BulletText("");
 			ImGui::SameLine();
-			ImGui::TextWrapped(md_text.c_str());
+			ImGui::TextWrapped(u8"%s", md_text.c_str());
 		}
 		else
 		{
