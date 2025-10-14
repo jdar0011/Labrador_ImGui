@@ -14,6 +14,10 @@
 #include <math.h>
 #include "ControlWidget.hpp"
 
+#include <chrono>
+using Clock = std::chrono::steady_clock;
+
+
 
 /// <summary>
 /// Renders oscilloscope data
@@ -23,6 +27,7 @@ class PlotWidget : public ControlWidget
 public:
 	int currentLabOscGain = 4;
 	double time_of_last_gain_update = 0;
+	bool SpectrumAcquisitionExists = false;
 
 	/// <summary>
 	/// Constructor
@@ -52,6 +57,13 @@ public:
 	/// </summary>
 	void Render() override
 	{
+		static Clock::time_point last = Clock::now();
+		Clock::time_point now = Clock::now();
+		double dt_s = std::chrono::duration<double>(now - last).count(); // seconds since last call
+		last = now;
+
+		// Optional: show it
+		printf("Frame dt: %.3f ms  (%.1f FPS)\n", dt_s * 1000.0, 1.0 / std::max(dt_s, 1e-9));
 		// Show cursor deltas if they are both active
 		bool show_cursor_props = (osc_control->Cursor1toggle && osc_control->Cursor2toggle);
 		// Show text underneath if cursors or signal properties activated
@@ -64,18 +76,11 @@ public:
 			= ImVec2(region_size.x, region_size.y - (text_window ? 3 * row_height : row_height));
 		ImVec2 plot_size_spectrum = ImVec2(0, 0);
 		ImVec2 plot_size_spectrum_magnitude = ImVec2(0, 0);
-		ImVec2 plot_size_spectrum_phase = ImVec2(0, 0);
-		if (osc_control->SpectrumAnalyserOn)
+		if (osc_control->SpectrumAnalyserControls.On)
 		{
 			plot_size.y /= 2;
 			plot_size_spectrum = plot_size;
 			plot_size_spectrum_magnitude = plot_size_spectrum;
-			if (osc_control->SpectrumAnalyserPhaseOn)
-			{
-				plot_size_spectrum_phase = plot_size_spectrum;
-				plot_size_spectrum_magnitude.x /= 2;
-				plot_size_spectrum_phase.x /= 2;
-			}
 		}
 		
 		ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(255, 255, 255, 255));
@@ -290,9 +295,164 @@ public:
 
 			ImPlot::EndPlot();
 		}
-		if (osc_control->SpectrumAnalyserOn)
+		// Spectrum Analyser Acquire logic
+		ImPlotFlags spectrum_base_plot_flags = ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus;
+		if (osc_control->SpectrumAnalyserControls.Acquire)
 		{
-			if(ImPlot::BeginPlot())
+			switch (osc_control->SpectrumAnalyserControls.SignalComboCurrentItem)
+			{
+			case 0: // OSC1
+				OSC1Data.PerformSpectrumAnalysis(osc_control->SpectrumAnalyserControls.SampleRatesValues[osc_control->SpectrumAnalyserControls.SampleRatesComboCurrentItem],
+					osc_control->SpectrumAnalyserControls.TimeWindow,
+					osc_control->SpectrumAnalyserControls.WindowComboCurrentItem);
+				osc_control->SpectrumAnalyserControls.OSC1_last_captured = osc_control->SpectrumAnalyserControls.TimeWindow;
+				break;
+			case 1: // OSC2
+				OSC2Data.PerformSpectrumAnalysis(osc_control->SpectrumAnalyserControls.SampleRatesValues[osc_control->SpectrumAnalyserControls.SampleRatesComboCurrentItem],
+					osc_control->SpectrumAnalyserControls.TimeWindow,
+					osc_control->SpectrumAnalyserControls.WindowComboCurrentItem);
+				osc_control->SpectrumAnalyserControls.OSC2_last_captured = osc_control->SpectrumAnalyserControls.TimeWindow;
+				break;
+			}
+		}
+		std::vector<double>* spectrum_mag_p = nullptr;
+		std::vector<double>* spectrum_freq_p = nullptr;
+		static int Previous_SAC_SignalComboCurrentItem = osc_control->SpectrumAnalyserControls.SignalComboCurrentItem;
+		static int Previous_SAC_UnitsComboCurrentItem = osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem;
+		AxisLimitRanges magnitude_range = magnitude_db_range;
+		static double constraint_mag_lower = magnitude_db_range.constraint_lower;
+		static double constraint_mag_upper = magnitude_db_range.constraint_upper;
+		switch (osc_control->SpectrumAnalyserControls.SignalComboCurrentItem)
+		{
+		case 0: // OSC1
+			switch (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem)
+			{
+			case 0:
+				spectrum_mag_p = OSC1Data.GetSpectrumMagdB_p();
+				magnitude_range = magnitude_db_range;
+				break;
+			case 1:
+				spectrum_mag_p = OSC1Data.GetSpectrumMag_p();
+				magnitude_range = magnitude_VRMS_range;
+				break;
+			}
+			spectrum_freq_p = OSC1Data.GetSpectrumFreq_p();
+			ImPlot::SetNextLineStyle(osc_control->OSC1Colour);
+			break;
+		case 1: // OSC2
+			switch (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem)
+			{
+			case 0:
+				spectrum_mag_p = OSC2Data.GetSpectrumMagdB_p();
+				magnitude_range = magnitude_db_range;
+				break;
+			case 1:
+				spectrum_mag_p = OSC2Data.GetSpectrumMag_p();
+				magnitude_range = magnitude_VRMS_range;
+				break;
+			}
+			spectrum_freq_p = OSC2Data.GetSpectrumFreq_p();
+			ImPlot::SetNextLineStyle(osc_control->OSC2Colour);
+			break;
+		}
+		if (spectrum_mag_p->size() > 0)
+		{
+			osc_control->SpectrumAnalyserControls.AcquisitionExists = true;
+		}
+		else
+		{
+			osc_control->SpectrumAnalyserControls.AcquisitionExists = false;
+		}
+		// Plot Spectrum Analyser (this is messy could do with some cleaning at some point)
+		if (osc_control->SpectrumAnalyserControls.On)
+		{
+			if (ImPlot::BeginPlot("##SpectrumMagnitude",plot_size_spectrum_magnitude,spectrum_base_plot_flags))
+			{
+				switch (osc_control->SpectrumAnalyserControls.SignalComboCurrentItem) 
+				{
+					case 0: // OSC1
+						ImPlot::SetNextLineStyle(osc_control->OSC1Colour);
+						break;
+					case 1: // OSC2
+						ImPlot::SetNextLineStyle(osc_control->OSC2Colour);
+						break;
+				}
+				ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"Hz");
+				switch (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem)
+				{
+				case 0:
+					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dbV");
+					break;
+				case 1:
+					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
+					break;
+				}
+				// initial limtis
+				ImPlot::SetupAxesLimits(init_freq_range_lower, init_freq_range_upper,
+					magnitude_range.init_lower, magnitude_range.init_upper, ImPlotCond_Once);
+				if (osc_control->SpectrumAnalyserControls.Autofit || osc_control->SpectrumAnalyserControls.Acquire || spectrum_was_off || 
+					(osc_control->SpectrumAnalyserControls.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem != Previous_SAC_UnitsComboCurrentItem)) // any changes that require axes limits to be changed
+				{
+					if (spectrum_mag_p->size() == 0)
+					{
+						ImPlot::SetupAxesLimits(init_freq_range_lower, init_freq_range_upper,
+							magnitude_range.init_lower, magnitude_range.init_upper, ImGuiCond_Always);
+					}
+					else
+					{
+						double mag_max = *std::max_element(spectrum_mag_p->begin(), spectrum_mag_p->end());
+						double mag_min = *std::min_element(spectrum_mag_p->begin(), spectrum_mag_p->end());
+						double mag_range = mag_max - mag_min;
+						double mag_frac = 0.9;
+						double pad = 0.5 * mag_range * (1 / mag_frac - 1);
+						pad = pad == 0 ? 1 : pad; // if flat line, add padding of 1
+						ImPlot::SetupAxesLimits((*spectrum_freq_p)[1], (*spectrum_freq_p)[spectrum_freq_p->size() - 1],
+							mag_min - pad, mag_max + pad, ImGuiCond_Always);
+					}
+					if (spectrum_mag_p->size() == 0)
+					{
+						constraint_mag_lower = magnitude_range.constraint_lower;
+						constraint_mag_upper = magnitude_range.constraint_upper;
+					}
+					else
+					{
+						constraint_mag_lower = *std::min_element(spectrum_mag_p->begin(), spectrum_mag_p->end()) - 10;
+						constraint_mag_upper = *std::max_element(spectrum_mag_p->begin(), spectrum_mag_p->end()) + 10;
+					}
+					
+				}
+				ImPlot::SetupAxes("Frequency (Hz)", "Magnitude (dbV/V)", ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
+				ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
+				if (spectrum_plot_data.x.size() == 0 || spectrum_freq_p->size() == 0) // constraints if no data
+				{
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, init_freq_range_lower, init_freq_range_upper);
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, magnitude_range.constraint_lower, magnitude_range.constraint_upper);
+				}
+				else // constraints if data
+				{
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, (*spectrum_freq_p)[1], (*spectrum_freq_p)[spectrum_freq_p->size() - 1]);
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, constraint_mag_lower, constraint_mag_upper);
+				}
+				static double last_x_min = init_freq_range_lower;
+				static double last_x_max = init_freq_range_upper;
+				if (last_x_min != ImPlot::GetPlotLimits().X.Min || last_x_max != ImPlot::GetPlotLimits().X.Max || osc_control->SpectrumAnalyserControls.Acquire || (osc_control->SpectrumAnalyserControls.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (osc_control->SpectrumAnalyserControls.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem != Previous_SAC_UnitsComboCurrentItem)) // any changes that require plot to be re-decimated
+				{
+					// Subsample data to avoid excessive points on plot
+					spectrum_plot_data = DecimateLogPlotTrace(*spectrum_freq_p, *spectrum_mag_p);
+					last_x_min = ImPlot::GetPlotLimits().X.Min;
+					last_x_max = ImPlot::GetPlotLimits().X.Max;
+				}
+				ImPlot::PlotLine("##Spectrum", spectrum_plot_data.x.data(), spectrum_plot_data.y.data(), spectrum_plot_data.y.size());
+				ImPlot::EndPlot();
+				// update prev state variables
+				Previous_SAC_SignalComboCurrentItem = osc_control->SpectrumAnalyserControls.SignalComboCurrentItem;
+				Previous_SAC_UnitsComboCurrentItem = osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem;
+			}
+			spectrum_was_off = false;
+		}
+		else
+		{
+			spectrum_was_off = true;
 		}
 		
 		// Help Button
@@ -934,6 +1094,7 @@ private:
 
 	}
 
+	
 protected:
 	ImVec2 size;
 	bool paused = false;
@@ -961,4 +1122,79 @@ protected:
 	double cursor2_y = -1000;
 	double trigger_time_plot = 0;
 	int last_update_frame = 10;
+	// Spectrum Stuff
+	double init_freq_range_lower = 1e-3;
+	double init_freq_range_upper = 375000. / 2;
+	struct AxisLimitRanges {
+		double init_lower;
+		double init_upper;
+		double constraint_lower;
+		double constraint_upper;
+	};
+	AxisLimitRanges magnitude_db_range = { -100, 0, -300, 300 };
+	AxisLimitRanges magnitude_VRMS_range = { 0, 1, 0, 20 };
+	bool spectrum_autofit = false;
+	bool spectrum_was_off = true;
+	struct PlotTrace {
+		std::vector<double> x;
+		std::vector<double> y;
+	};
+	PlotTrace spectrum_plot_data;
+	PlotTrace DecimateLogPlotTrace(const std::vector<double>& x,
+		const std::vector<double>& y)
+	{
+		PlotTrace out;
+		if (x.size() != y.size() || x.empty()) return out;
+
+		ImVec2 pos = ImPlot::GetPlotPos();
+		ImVec2 size = ImPlot::GetPlotSize();
+		const int W = (int)size.x;
+		if (W <= 1) return out;
+
+		ImPlotRect lim = ImPlot::GetPlotLimits();
+		double xmin = std::max(lim.X.Min, 1e-300);
+		double xmax = std::max(lim.X.Max, xmin * 1.0001);
+
+		// Log bin edges per pixel column
+		std::vector<double> edge_f(W + 1);
+		const double Lmin = std::log(xmin);
+		const double dL = (std::log(xmax) - Lmin) / W;
+		for (int c = 0; c <= W; ++c)
+			edge_f[c] = std::exp(Lmin + c * dL);
+
+		out.x.reserve(W * 2);
+		out.y.reserve(W * 2);
+
+		size_t i = (size_t)(std::lower_bound(x.begin(), x.end(), edge_f[0]) - x.begin());
+		for (int c = 0; c < W; ++c) {
+			size_t j = (size_t)(std::lower_bound(x.begin() + i, x.end(), edge_f[c + 1]) - x.begin());
+
+			if (i >= j) continue; // no points in this column
+
+			// first / last
+			size_t i_first = i, i_last = j - 1;
+
+			// min / max in [i, j)
+			size_t i_min = i, i_max = i;
+			double ymin = y[i], ymax = y[i];
+			for (size_t k = i + 1; k < j; ++k) {
+				if (y[k] < ymin) { ymin = y[k]; i_min = k; }
+				if (y[k] > ymax) { ymax = y[k]; i_max = k; }
+			}
+
+			auto push = [&](size_t idx) {
+				if (!out.x.empty() && x[idx] == out.x.back() && y[idx] == out.y.back()) return;
+				out.x.push_back(x[idx]); out.y.push_back(y[idx]);
+			};
+
+			push(i_first);
+			if (i_min != i_first && i_min != i_last) push(i_min);
+			if (i_max != i_first && i_max != i_last && i_max != i_min) push(i_max);
+			if (i_last != i_first) push(i_last);
+
+			i = j; // next bucket starts where this ended
+		}
+
+		return out;
+	}
 };

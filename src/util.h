@@ -30,7 +30,8 @@ constexpr float OSC1_ACCENT[3] = { 230. / 255, 207. / 255, 2. / 255 };
 constexpr float OSC2_ACCENT[3] = { 255. / 255, 123. / 255, 250. / 255 };
 constexpr float GEN_ACCENT[3] = { 150. / 255, 150. / 255, 150. / 255 };
 constexpr float MATH_ACCENT[3] = { 4*18. / 255, 4*33. / 255, 4*69. / 255 };
-constexpr float SPECTRUM_ANALYSER_ACCENT[3] = { 255. / 255, 123. / 255, 250. / 255 };
+constexpr float SPECTRUM_ANALYSER_ACCENT[3] = { 210. / 255, 68. / 255, 41. / 255 };
+constexpr float NETWORK_ANALYSER_ACCENT[3] = { 65. / 255, 194. / 255, 55. / 255 };
 
 // Syntax Highlighting Colours
 constexpr ImU32 SymbolColour = IM_COL32(175, 253, 255, 255);
@@ -145,4 +146,7 @@ int MetricFormatter(double value, char* buff, int size, void* data);
 void ToggleTriggerTypeComboChannel(int* ComboCurrentItem);
 void ToggleTriggerTypeComboType(int* ComboCurrentItem);
 std::vector<double> EvalUserExpression(std::string expr, std::vector<double> osc1, std::vector<double> osc2, bool& parse_success);
+bool SliderFloatPercent(const char* label, float* v01,
+	const char* fmt = "%.0f%%",
+	ImGuiSliderFlags flags = 0);
 #endif

@@ -211,7 +211,7 @@ class AppBase
         ImFontConfig config;
 		config.MergeMode = true;
 		ImWchar arrow_ranges[] = { 0x2190, 0x2206, 0 };
-		ImWchar check_ranges[] = { 0x2713, 0x2714, 0 };
+		ImWchar check_ranges[] = { 0x2713, 0x2718, 0 };
         ImFont* arrow_font = io.Fonts->AddFontFromFileTTF(font_path_special, 24.0f,&config,arrow_ranges);
         ImFont* greek_font = io.Fonts->AddFontFromFileTTF(font_path_special, 18.0f, &config, io.Fonts->GetGlyphRangesGreek());
 		ImFont* check_font = io.Fonts->AddFontFromFileTTF(font_path_check, 18.0f, &config, check_ranges);

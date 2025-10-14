@@ -8,6 +8,8 @@
 #include <array>
 #include <float.h>
 #include "TVD.hpp"
+#define _USE_MATH_DEFINES
+#include "math.h"
 class OSCControl;
 
 class OscData
@@ -28,7 +30,7 @@ public:
 		std::fill(mini_buffer.begin(), mini_buffer.end(), 1.65);
 		data_ft_out_normalized.resize(ft_size);
 	}
-	void SetRawData() // sets the raw_data vector to be used for fourier analysis (frequency stuff)
+	void SetRawData() // sets the raw_data vector to be used for signal properties (to be changed soon)
 	{
 		if (!paused)
 		{
@@ -403,7 +405,128 @@ public:
 		sum /= periodic_data.size();
 		return sum;
 	}
-	void ApplyFFT()
+	void PerformSpectrumAnalysis(double sample_rate = 375000,
+		double time_window = 5,
+		int windowing_function = 0)       // 0=Hann, 1=Rectangular
+	{
+		// ---- 0) Acquire one record (single-block FFT, DSO-style) ----
+		std::vector<double>* data_for_spectrum_ptr =
+			librador_get_analog_data(channel, time_window, sample_rate, delay_s, filter_mode);
+
+		if (data_for_spectrum_ptr) {
+			data_for_spectrum = *data_for_spectrum_ptr;
+			std::reverse(data_for_spectrum.begin(), data_for_spectrum.end()); // keep your original behavior
+		}
+		else {
+			data_for_spectrum.clear();
+		}
+
+		const size_t L = data_for_spectrum.size();
+		if (L == 0) {
+			time_for_spectrum.clear();
+			spectrum_freq.clear();
+			spectrum_data.clear();
+			return;
+		}
+
+		// ---- 1) Time axis for whole capture ----
+		time_for_spectrum.resize(L);
+		for (size_t i = 0; i < L; ++i)
+			time_for_spectrum[i] = i / sample_rate;
+
+		// ---- 2) Window (Rect by default; Hann if requested) ----
+		std::vector<double> w(L, 1.0);
+		if (windowing_function == 0 && L > 1) { // Hann
+			const double inv = 1.0 / double(L - 1);
+			for (size_t n = 0; n < L; ++n)
+				w[n] = 0.5 * (1.0 - std::cos(2.0 * M_PI * n * inv));
+		}
+
+		// Coherent gain (sum of window) — used to correct tone amplitude
+		double sumw = 0.0;
+		for (double a : w) sumw += a;
+		const double inv_sumw = (sumw != 0.0) ? (1.0 / sumw) : 0.0;
+
+		// ---- 3) Detrend (remove mean) + apply window ----
+		double mean = 0.0;
+		for (double v : data_for_spectrum) mean += v;
+		mean /= double(L);
+
+		std::vector<double> in(L);
+		for (size_t n = 0; n < L; ++n)
+			in[n] = (data_for_spectrum[n] - mean) * w[n];
+
+		// ---- 4) FFT (real->complex, one-sided) ----
+		const bool   even = (L % 2 == 0);
+		const size_t Nb = L / 2 + 1;                 // one-sided bins
+		const double df = sample_rate / double(L); // frequency step
+
+		spectrum_freq.resize(Nb);
+		for (size_t k = 0; k < Nb; ++k)
+			spectrum_freq[k] = k * df;
+
+		std::vector<fftw_complex> out(Nb);
+		fftw_plan plan = fftw_plan_dft_r2c_1d(int(L), in.data(), out.data(), FFTW_ESTIMATE);
+		fftw_execute(plan);
+		fftw_destroy_plan(plan);
+
+		// ---- 5) Scale to per-bin Vrms (DSO behaviour) ----
+		// For a bin-centered sine with peak amplitude A_pk:
+		//   |X[k]| ~ sum(w) * A_pk / 2  (FFTW forward is unscaled)
+		// Single-sided interior bins doubled (×2); DC/Nyquist are not.
+		// Vrms = A_pk / sqrt(2)  =>  Vrms = |X[k]| * (s / sum(w)) / sqrt(2)
+		const double root2 = std::sqrt(2.0);
+
+		spectrum_data.resize(Nb); // store per-bin Vrms (Volts)
+		for (size_t k = 0; k < Nb; ++k) {
+			const double re = out[k][0];
+			const double im = out[k][1];
+			const double mag = std::hypot(re, im);           // |X[k]|
+			const bool is_dc = (k == 0);
+			const bool is_nyq = (even && k == Nb - 1);
+			const double s = (is_dc || is_nyq) ? 1.0 : 2.0; // single-sided factor
+			const double vrms = (mag * (s * inv_sumw)) / root2;
+			spectrum_data[k] = vrms;
+		}
+
+		const double eps = 1e-30;
+		std::vector<double> db; db.reserve(spectrum_data.size());
+		for (double v : spectrum_data)
+			db.push_back(20.0 * std::log10(std::max(v, eps)));
+		spectrum_data_db = db;
+
+		// NOTE:
+		// - 'spectrum_data' now holds per-bin Vrms (V), matching DSO FFT magnitude.
+		// - For dBV display in your plot: dBV = 20*log10(max(vrms, 1e-30)).
+		// - RBW to show in UI (optional): ENBW = Fs * (sum(w^2) / sum(w)^2).
+		//   For Rect, ENBW = deltaf; for Hann, ~ 1.5*deltaf.
+	}
+	std::vector<double> GetSpectrumMag()
+	{
+		return spectrum_data;
+	}
+	std::vector<double> GetSpectrumMagdB()
+	{
+		return spectrum_data_db;
+	}
+	std::vector<double> GetSpectrumFreq()
+	{
+		return spectrum_freq;
+	}
+	std::vector<double>* GetSpectrumMag_p()
+	{
+		return &spectrum_data;
+	}
+	std::vector<double>* GetSpectrumMagdB_p()
+	{
+		return &spectrum_data_db;
+	}
+	std::vector<double>* GetSpectrumFreq_p()
+	{
+		return &spectrum_freq;
+	}
+
+	void ApplyFFT() //unused will remove
 	{
 		std::copy(raw_data.begin(), raw_data.end(), data_ft_in);
 		fftw_execute(plan);
@@ -419,7 +542,7 @@ public:
 			data_ft_out_normalized[i].imag(data_ft_out[i][1] / (ft_size));
 		}
 	}
-	double GetDominantFrequency() // using fft (don't use this as it is not supported)
+	double GetDominantFrequency() // unused will remove
 	{
 		std::vector<double> ft_mag;
 		ApplyFFT();
@@ -438,11 +561,11 @@ public:
 			return 0;
 		}
 	}
-	double GetDCComponent()
+	double GetDCComponent() //unused will remove
 	{
 		return std::abs(data_ft_out_normalized[0]);
 	}
-	std::vector<double> GetFilteredData() // applies low pass filter, unused currently but kept just in case
+	std::vector<double> GetFilteredData() // applies low pass filter, unused currently but kept just in case, unused will remove
 	{
 		double filter_cutoff = 50000; // hz
 		for (int i = 0; i < raw_data.size(); i++)
@@ -479,7 +602,7 @@ public:
 	{
 		return channel;
 	}
-	std::vector<double> GetRawData()
+	std::vector<double> GetRawData() // unused will remove later
 	{
 		return raw_data;
 	}
@@ -495,6 +618,7 @@ private:
 	std::vector<double> data = {};
 	std::vector<double> extended_data = {};
 	std::vector<double> periodic_data = {}; // i create this vector to just contain n periods
+	std::vector<double> fft_data_time_domain = {};
 	int channel;
 	int filter_mode = 0;
 	double delay_s = 0;
@@ -505,6 +629,12 @@ private:
 	double extended_data_sample_rate_hz = 0;
 	int max_plot_samples = 2048;
 	double max_sample_rate = 375000;
+	// spectrum analyser
+	std::vector<double> data_for_spectrum = {};
+	std::vector<double> time_for_spectrum = {};
+	std::vector<double> spectrum_data = {};
+	std::vector<double> spectrum_data_db = {};
+	std::vector<double> spectrum_freq = {};
 	// frequency stuff
 	std::vector<double> raw_data = {}; // to be copied to data_ft_in and used in frequency transform
 	std::vector<double> raw_time = {}; // time associated with raw_data

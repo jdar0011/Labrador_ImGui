@@ -262,3 +262,16 @@ std::vector<double> EvalUserExpression(std::string user_text, std::vector<double
 	return result;
 }
 
+// Drop-in helper: shows a 0..1 value as "0%..100%" and writes back scaled.
+// fmt e.g. "%.0f%%" or "%.1f%%"
+bool SliderFloatPercent(const char* label, float* v01,
+	const char* fmt,
+	ImGuiSliderFlags flags)
+{
+	float pct = (*v01) * 100.0f;
+	bool changed = ImGui::SliderFloat(label, &pct, 0.0f, 100.0f, fmt, flags);
+	if (changed) *v01 = pct / 100.0f;
+	return changed;
+}
+
+
