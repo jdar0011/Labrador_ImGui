@@ -35,6 +35,10 @@ std::string getResourcePath(const std::string& filename) {
 #else
 std::string getResourcePath(const std::string& filename) {
     // On Windows/Linux, just look relative to the exe
+	if (filename == "README.md") // fix for just readme
+	{
+		return filename;
+	}
     return "./misc/" + filename;
 }
 #endif
