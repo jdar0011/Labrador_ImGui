@@ -1,4 +1,5 @@
 // Source: https://github.com/ZenSepiol/Dear-ImGui-App-Framework/blob/main/src/lib/app_base/app_base.hpp
+#define GL_SILENCE_DEPRECATION
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -195,13 +196,11 @@ class AppBase
         ImGui_ImplOpenGL3_Init(glsl_version);
         // Add custom fonts
         ImGuiIO& io = ImGui::GetIO();
-        const char* font_path_default;
-        const char* font_path_special;
-        const char* font_path_check;
-        font_path_default = "./misc/fonts/Roboto-Medium.ttf";
-        font_path_special = "./misc/fonts/arial.ttf";
-		font_path_check = "./misc/fonts/seguisym.ttf";
-        ImFont* default_font = io.Fonts->AddFontFromFileTTF(font_path_default, 18.0f,nullptr,io.Fonts->GetGlyphRangesDefault());
+
+        std::string font_path_default = getResourcePath("fonts/Roboto-Medium.ttf");
+        std::string font_path_special = getResourcePath("fonts/arial.ttf");
+        std::string font_path_check = getResourcePath("fonts/seguisym.ttf");
+        ImFont* default_font = io.Fonts->AddFontFromFileTTF(font_path_default.c_str(), 18.0f,nullptr,io.Fonts->GetGlyphRangesDefault());
         if (!default_font)
         {
 #ifndef NDEBUG
@@ -212,9 +211,9 @@ class AppBase
 		config.MergeMode = true;
 		ImWchar arrow_ranges[] = { 0x2190, 0x2206, 0 };
 		ImWchar check_ranges[] = { 0x2713, 0x2718, 0 };
-        ImFont* arrow_font = io.Fonts->AddFontFromFileTTF(font_path_special, 24.0f,&config,arrow_ranges);
-        ImFont* greek_font = io.Fonts->AddFontFromFileTTF(font_path_special, 18.0f, &config, io.Fonts->GetGlyphRangesGreek());
-		ImFont* check_font = io.Fonts->AddFontFromFileTTF(font_path_check, 18.0f, &config, check_ranges);
+    ImFont* arrow_font = io.Fonts->AddFontFromFileTTF(font_path_special.c_str(), 24.0f,&config,arrow_ranges);
+    ImFont* greek_font = io.Fonts->AddFontFromFileTTF(font_path_special.c_str(), 18.0f, &config, io.Fonts->GetGlyphRangesGreek());
+		ImFont* check_font = io.Fonts->AddFontFromFileTTF(font_path_check.c_str(), 18.0f, &config, check_ranges);
         //ImFont* arrow_font = io.Fonts->AddFontFromFileTTF("./misc/fonts/arial.ttf", 24.0f, nullptr, arrow_ranges);
         if (!arrow_font)
         {

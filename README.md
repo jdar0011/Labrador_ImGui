@@ -13,13 +13,36 @@
 ### Windows
 - v1.0.0 Release (October 2024) found [here](https://github.com/jdar0011/Labrador_ImGui/releases/tag/v.1.0.0)
 - Download and run .msi file, application and relevant driver will be installed.
-- **Currently for Windows devices only**
+
+### macOS
+- Beta Release (October 2025) found [here](https://github.com/jdar0011/Labrador_ImGui/releases/tag/Beta)
+- Download and open .dmg file, code is current **unsigned** so macOS makes it difficult to open
+- After dragging the LabradorImgui.app into the Application folder, run this line of code to allow the app to open (works on macOS Sequoia V15.6)
+```
+sudo xattr -cr /Applications/LabradorImgui.app
+```
 
 # Running the Code
 
-- **Currently for Windows devices only**
+### Windows
 - This application is developed with Visual Studio 2022
 - Clone the respository using Visual Studio 2022 to build and run the latest variant of the application
+
+### macOS
+- Download cmake (if you have homebrew (https://brew.sh/))
+```
+brew install cmake
+```
+- Run cmake commands in package_mac.sh to build the app bundle (terminal commands must be executed from the cloned repository directory)
+```
+chmod +x package_mac.sh
+./package_mac.sh
+```
+- Executable can be run via
+```
+./mac_appbundle/LabradorImgui.app/Contents/MacOS/LabradorImgui
+```
+- or you can open LabradorImgui.app in the mac_appbundle folder
 
 # User Documentation
 

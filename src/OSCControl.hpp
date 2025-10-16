@@ -33,8 +33,8 @@ public:
 	bool OSC2ClipboardCopyNext = false;
 	bool OSC1ClipboardCopied = false;
 	bool OSC2ClipboardCopied = false;
-	nfdchar_t* FileExtension = "csv";
-	// Plot Stuff
+	const nfdchar_t* FileExtension = "csv";
+	//
 	float OffsetVal = 0.0f;
 	bool ACCoupledCheck = false;
 	bool Paused = false;

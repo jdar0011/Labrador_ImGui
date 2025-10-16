@@ -111,13 +111,13 @@ class App : public AppBase<App>
 		int w, h;
 
 		// All textures have the same width and height (for now)
-		bool psu_ret = LoadTextureFromFile("./misc/media/psu-pinout.png",
+		bool psu_ret = LoadTextureFromFile(getResourcePath("media/psu-pinout.png").c_str(),
 			&psu_tmp_texture, &w, &h);
 
-		bool sg_ret = LoadTextureFromFile("./misc/media/sg-pinout.png",
+		bool sg_ret = LoadTextureFromFile(getResourcePath("media/sg-pinout.png").c_str(),
 			&sg_tmp_texture, &w, &h);
 
-		bool osc_ret = LoadTextureFromFile("./misc/media/osc-pinout.png",
+		bool osc_ret = LoadTextureFromFile(getResourcePath("media/osc-pinout.png").c_str(),
 			&osc_tmp_texture, &w, &h);
 
 		PSUWidget.setPinoutImg((intptr_t)psu_tmp_texture, w, h);
@@ -284,9 +284,10 @@ class App : public AppBase<App>
 			if (connected)
 			{
 				// Check connection status
-				connected = librador_get_device_firmware_variant() != 179; // disconnected status
-				if (!connected) librador_reset_usb();
-				else
+				const uint8_t firmware_variant = librador_get_device_firmware_variant();
+				connected = !(firmware_variant == 179 || firmware_variant == 176); // disconnected status
+				if (!connected) librador_reset_usb(); // not sure if this is neccessary
+				if (connected)
 				{
 					// Call controlLab functions for each widget
 					if (frames % labRefreshRate == 0)
@@ -390,7 +391,7 @@ class App : public AppBase<App>
 	void loadREADME()
 	{
 		// Load documentation
-		std::string filename = "README.md";
+		std::string filename = getResourcePath("README.md");
 		std::ifstream file(filename);
 
 		if (!file.is_open())
@@ -545,7 +546,7 @@ class App : public AppBase<App>
 	OSCControl OSCWidget
 	    = OSCControl("Plot Settings", ImVec2(0, 0), constants::OSC_ACCENT);
 	PlotWidget PlotWidgetObj 
-		= PlotWidget("Plot Window",ImVec2(0, 0),&OSCWidget);
+		= PlotWidget("Plot Window",ImVec2(0, 0),constants::PLOT_ACCENT, &OSCWidget);
 	HelpWidget TroubleShoot = HelpWidget("Troubleshooting"); // Purely for universal help
 	ControlWidget* widgets[6]
 	    = { &TroubleShoot, &PSUWidget, &SG1Widget, &SG2Widget, &OSCWidget, &PlotWidgetObj };

@@ -188,7 +188,7 @@ static bool MiniHLInput(const char* label,
                         r.Min.y + ImGui::GetStyle().FramePadding.y };
 
     ImU32 def_col = default_text_color ? default_text_color : ImGui::GetColorU32(ImGuiCol_Text);
-    ImU32 num_col = 0; // <-- mask only; set to a color if you later want them highlighted
+    ImU32 num_col = ImU32(ImColor(float(181. / 255), float(206. / 255), float(168. / 255), float(1))); // <-- mask only; set to a color if you later want them highlighted
     std::vector<MiniHLToken> toks;
     mini_tokenize(tmp, rules, def_col, num_col, toks);
 

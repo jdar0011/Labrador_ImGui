@@ -22,6 +22,8 @@ public:
 	{
 	}
 
+	virtual ~GenericSignal() = default;
+
 	std::string getLabel() const
 	{
 		return label;

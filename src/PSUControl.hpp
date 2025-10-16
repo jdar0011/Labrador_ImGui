@@ -35,11 +35,11 @@ public:
 		{
 #ifndef NDEBUG
 			printf("librador_set_power_supply_voltage FAILED with error code "
-				    "%d\tExiting...",
+				    "%d",
 				error);
 #endif
 			// Board not connected (continue to run)
-			if (error == -1101)
+			if (error == -1101 || error == -1104)
 			{
 				return false;
 			}

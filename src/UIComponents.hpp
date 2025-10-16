@@ -164,7 +164,7 @@ void inline TextRight(std::string text)
 	auto textWidth = ImGui::CalcTextSize(text.c_str()).x;
 
 	ImGui::SetCursorPosX(windowWidth - textWidth - 10);
-	ImGui::Text(text.c_str());
+	ImGui::Text("%s", text.c_str());
 }
 
 class SIValue
@@ -203,7 +203,7 @@ public:
 	{
 		bool changed = false;
 		ImGui::TableNextColumn();
-		ImGui::Text(label.c_str());
+		ImGui::Text("%s", label.c_str());
 		ImGui::TableNextColumn();
 		ImGui::SetNextItemWidth(inpWidth);
 		changed |= ImGui::DragFloat(
@@ -221,7 +221,7 @@ public:
 		{
 			updateDisplayValue();
 		}
-		else if (options.size() == 1) ImGui::Text(options[0].c_str());
+		else if (options.size() == 1) ImGui::Text("%s", options[0].c_str());
 		// ImGui::TableNextColumn();
 		if (changed) updateValue();
 		return changed;
