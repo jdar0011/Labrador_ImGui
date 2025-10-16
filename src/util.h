@@ -14,6 +14,8 @@
 #include "math.h"
 #include "exprtk.hpp"
 
+#define MATH_CUSTOM 15
+
 
 namespace constants
 {
@@ -29,8 +31,17 @@ constexpr float OSC2_ACCENT[3] = { 255. / 255, 123. / 255, 250. / 255 };
 constexpr float GEN_ACCENT[3] = { 150. / 255, 150. / 255, 150. / 255 };
 constexpr float MATH_ACCENT[3] = { 4*18. / 255, 4*33. / 255, 4*69. / 255 };
 constexpr float PLOT_ACCENT[3] = {0., 0., 0.};
+constexpr float SPECTRUM_ANALYSER_ACCENT[3] = { 210. / 255, 68. / 255, 41. / 255 };
+constexpr float NETWORK_ANALYSER_ACCENT[3] = { 65. / 255, 194. / 255, 55. / 255 };
 
-    // Signal Generator Preview Waves
+// Syntax Highlighting Colours
+constexpr ImU32 SymbolColour = IM_COL32(175, 253, 255, 255);
+constexpr ImU32 FunctionColour = IM_COL32(78, 201, 176, 255);
+constexpr ImU32 NumberColour = IM_COL32(181, 206, 168, 255);
+constexpr ImU32 KeywordColour = IM_COL32(86,156,214,255);
+
+
+// Signal Generator Preview Waves
 constexpr const char* wavetypes[4] = { "Sine", "Square", "Sawtooth", "Triangle" };
 constexpr int PREVIEW_RES = 128;
 extern float x_preview[PREVIEW_RES+1];
@@ -136,5 +147,8 @@ std::string NumToString(double num,int precision);
 int MetricFormatter(double value, char* buff, int size, void* data);
 void ToggleTriggerTypeComboChannel(int* ComboCurrentItem);
 void ToggleTriggerTypeComboType(int* ComboCurrentItem);
-std::vector<double> EvalUserExpression(std::string expr, std::vector<double> osc1, std::vector<double> osc2);
+std::vector<double> EvalUserExpression(std::string expr, std::vector<double> osc1, std::vector<double> osc2, bool& parse_success);
+bool SliderFloatPercent(const char* label, float* v01,
+	const char* fmt = "%.0f%%",
+	ImGuiSliderFlags flags = 0);
 #endif

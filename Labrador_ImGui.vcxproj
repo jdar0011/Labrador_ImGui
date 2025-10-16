@@ -91,7 +91,7 @@
     <ClCompile>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>.\libs;.\libs\fftw;.\libs\glfw\include;.\libs\libusb;.\libs\nfd;.\libs\usynergy;.\libs\imgui;.\libs\librador;.\backends;.\misc\cpp;.\libs\exprtk;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\libs;.\libs\fftw;.\libs\glfw\include;.\libs\libusb;.\libs\nfd;.\libs\usynergy;.\libs\imgui;.\libs\librador;.\backends;.\misc\cpp;.\libs\exprtk;.\libs\imguicolortextedit;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -196,6 +196,7 @@ xcopy /y /d ".\libs\fftw\libfftw3-3.dll" "$(OutDir)"</Command>
     <ClInclude Include="src\AppBase.hpp" />
     <ClInclude Include="src\ControlWidget.hpp" />
     <ClInclude Include="src\CursorProperties.hpp" />
+    <ClInclude Include="src\MiniHLInput.h" />
     <ClInclude Include="src\OSCControl.hpp" />
     <ClInclude Include="src\OscData.hpp" />
     <ClInclude Include="src\PlotWidget.hpp" />

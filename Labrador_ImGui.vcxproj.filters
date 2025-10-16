@@ -143,6 +143,9 @@
     <ClInclude Include="libs\exprtk\exprtk.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\MiniHLInput.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />

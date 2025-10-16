@@ -273,7 +273,7 @@ void ToggleTriggerTypeComboType(int* ComboCurrentItem)
 		*ComboCurrentItem = 2;
 	}
 }
-std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2)
+std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2, bool &parse_success)
 {
 	int N = osc1.size() > osc2.size() ? osc1.size() : osc2.size();
 	std::vector<double> result(N);
@@ -286,8 +286,27 @@ std::vector<double> EvalUserExpression(std::string user_text, std::vector<double
 	exprtk::expression<double> expr;
 	expr.register_symbol_table(sym);
 	exprtk::parser<double> parser;
-	parser.compile(src, expr);
+	if (parser.compile(src, expr))
+	{
+		parse_success = true;
+	}
+	else {
+		parse_success = false;
+	}
 	expr.value();
 	return result;
 }
+
+// Drop-in helper: shows a 0..1 value as "0%..100%" and writes back scaled.
+// fmt e.g. "%.0f%%" or "%.1f%%"
+bool SliderFloatPercent(const char* label, float* v01,
+	const char* fmt,
+	ImGuiSliderFlags flags)
+{
+	float pct = (*v01) * 100.0f;
+	bool changed = ImGui::SliderFloat(label, &pct, 0.0f, 100.0f, fmt, flags);
+	if (changed) *v01 = pct / 100.0f;
+	return changed;
+}
+
 
