@@ -442,7 +442,7 @@ public:
 				w[n] = 0.5 * (1.0 - std::cos(2.0 * M_PI * n * inv));
 		}
 
-		// Coherent gain (sum of window) — used to correct tone amplitude
+		// Coherent gain (sum of window) ï¿½ used to correct tone amplitude
 		double sumw = 0.0;
 		for (double a : w) sumw += a;
 		const double inv_sumw = (sumw != 0.0) ? (1.0 / sumw) : 0.0;
@@ -465,15 +465,15 @@ public:
 		for (size_t k = 0; k < Nb; ++k)
 			spectrum_freq[k] = k * df;
 
-		std::vector<fftw_complex> out(Nb);
-		fftw_plan plan = fftw_plan_dft_r2c_1d(int(L), in.data(), out.data(), FFTW_ESTIMATE);
+		fftw_complex* out = fftw_alloc_complex(Nb);
+		fftw_plan plan = fftw_plan_dft_r2c_1d(int(L), in.data(), out, FFTW_ESTIMATE);
 		fftw_execute(plan);
 		fftw_destroy_plan(plan);
 
 		// ---- 5) Scale to per-bin Vrms (DSO behaviour) ----
 		// For a bin-centered sine with peak amplitude A_pk:
 		//   |X[k]| ~ sum(w) * A_pk / 2  (FFTW forward is unscaled)
-		// Single-sided interior bins doubled (×2); DC/Nyquist are not.
+		// Single-sided interior bins doubled (ï¿½2); DC/Nyquist are not.
 		// Vrms = A_pk / sqrt(2)  =>  Vrms = |X[k]| * (s / sum(w)) / sqrt(2)
 		const double root2 = std::sqrt(2.0);
 

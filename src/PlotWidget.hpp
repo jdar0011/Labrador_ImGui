@@ -63,7 +63,7 @@ public:
 		last = now;
 
 		// Optional: show it
-		printf("Frame dt: %.3f ms  (%.1f FPS)\n", dt_s * 1000.0, 1.0 / std::max(dt_s, 1e-9));
+		// printf("Frame dt: %.3f ms  (%.1f FPS)\n", dt_s * 1000.0, 1.0 / std::max(dt_s, 1e-9));
 		// Show cursor deltas if they are both active
 		bool show_cursor_props = (osc_control->Cursor1toggle && osc_control->Cursor2toggle);
 		// Show text underneath if cursors or signal properties activated

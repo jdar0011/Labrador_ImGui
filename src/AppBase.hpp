@@ -199,7 +199,7 @@ class AppBase
 
         std::string font_path_default = getResourcePath("fonts/Roboto-Medium.ttf");
         std::string font_path_special = getResourcePath("fonts/arial.ttf");
-        std::string font_path_check = getResourcePath("./misc/fonts/seguisym.ttf");
+        std::string font_path_check = getResourcePath("fonts/seguisym.ttf");
         ImFont* default_font = io.Fonts->AddFontFromFileTTF(font_path_default.c_str(), 18.0f,nullptr,io.Fonts->GetGlyphRangesDefault());
         if (!default_font)
         {
