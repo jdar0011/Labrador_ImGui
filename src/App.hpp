@@ -42,9 +42,12 @@ int windows_system(const char* cmd) {
 // Global textures to be loaded once during start-up
 int constants::pinout_width;
 int constants::pinout_height;
+int constants::glob_pinout_width;
+int constants::glob_pinout_height;
 intptr_t constants::psu_pinout_texture = 0;
 intptr_t constants::sg_pinout_texture;
 intptr_t constants::osc_pinout_texture;
+intptr_t constants::glob_pinout_texture;
 
 class App : public AppBase<App>
 {
@@ -108,7 +111,8 @@ class App : public AppBase<App>
 		GLuint psu_tmp_texture = 0;
 		GLuint sg_tmp_texture = 0;
 		GLuint osc_tmp_texture = 0;
-		int w, h;
+		GLuint glob_tmp_texture = 0;
+		int w, h, gw, gh;
 
 		// All textures have the same width and height (for now)
 		bool psu_ret = LoadTextureFromFile(getResourcePath("media/psu-pinout.png").c_str(),
@@ -119,15 +123,20 @@ class App : public AppBase<App>
 
 		bool osc_ret = LoadTextureFromFile(getResourcePath("media/osc-pinout.png").c_str(),
 			&osc_tmp_texture, &w, &h);
+		
+		bool glob_ret = LoadTextureFromFile(getResourcePath("media/global-pinout.png").c_str(),
+			&glob_tmp_texture, &gw, &gh);
 
 		PSUWidget.setPinoutImg((intptr_t)psu_tmp_texture, w, h);
 		SG1Widget.setPinoutImg((intptr_t)sg_tmp_texture, w, h);
 		SG2Widget.setPinoutImg((intptr_t)sg_tmp_texture, w, h);
 		OSCWidget.setPinoutImg((intptr_t)osc_tmp_texture, w, h);
+		GeneralHelp.setPinoutImg((intptr_t)glob_tmp_texture, gw, gh);
 
 		IM_ASSERT(psu_ret);
 		IM_ASSERT(sg_ret);
 		IM_ASSERT(osc_ret);
+		IM_ASSERT(glob_ret);
 
 		init_constants();
 
@@ -548,7 +557,8 @@ class App : public AppBase<App>
 	PlotWidget PlotWidgetObj 
 		= PlotWidget("Plot Window",ImVec2(0, 0),constants::PLOT_ACCENT, &OSCWidget);
 	HelpWidget TroubleShoot = HelpWidget("Troubleshooting"); // Purely for universal help
-	ControlWidget* widgets[6]
-	    = { &TroubleShoot, &PSUWidget, &SG1Widget, &SG2Widget, &OSCWidget, &PlotWidgetObj };
+	HelpWidget GeneralHelp = HelpWidget("General");
+	ControlWidget* widgets[7]
+	    = { &GeneralHelp, &TroubleShoot, &PSUWidget, &SG1Widget, &SG2Widget, &OSCWidget, &PlotWidgetObj };
 };
 

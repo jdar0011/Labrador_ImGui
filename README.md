@@ -29,11 +29,11 @@ sudo xattr -cr /Applications/LabradorImgui.app
 - Clone the respository using Visual Studio 2022 to build and run the latest variant of the application
 
 ### macOS
-- Download cmake (if you have homebrew (https://brew.sh/))
+- Download cmake (if you have homebrew (https://brew.sh/) the command is:)
 ```
 brew install cmake
 ```
-- Run cmake commands in package_mac.sh to build the app bundle (terminal commands must be executed from the cloned repository directory)
+- Run cmake commands through package_mac.sh to build the app bundle by running the below commands from the repository top-level directory:
 ```
 chmod +x package_mac.sh
 ./package_mac.sh
@@ -45,6 +45,15 @@ chmod +x package_mac.sh
 - or you can open LabradorImgui.app in the mac_appbundle folder
 
 # User Documentation
+
+### General
+
+#### About the board
+
+- This application controls the EspoTek Labrador Board.
+- Not all pins are utilised by this application. See Pinout below for a diagram showing the location of all pins used by this application.
+- All Ground (GND) Pins are connected i.e. all GND connections offer a common reference point.
+- [TODO: INSERT EXPLANATION FOR AC COUPLING SITTING at ~1.6 V]
 
 ### Troubleshooting
 
@@ -81,7 +90,7 @@ chmod +x package_mac.sh
 
 #### Additional Information
 - **DC Coupled Pins**: Replicates the properties set in the application.
-- **AC Coupled Pins**: No DC component meaning the offset set in the application may not have the desired effect. Use the DC Oscilloscope Pins to observe this effect in action! 
+- **AC Coupled Pins**: No DC component meaning the offset set in the application may not have the desired effect.
 
 ### Plot Settings
 
