@@ -78,7 +78,8 @@ chmod +x package_mac.sh
 - **Waveform selection**: Chooses the type of waveform output.
 - **Frequency slider**: Sets the frequency of the signal.
 - **Vpeak-peak slider**: Modifies the peak to peak amplitude of the waveform.
-- **Offset slider**: Shifts the waveform's base voltage level
+- **Offset slider**: Shifts the waveform's base voltage level.
+- **Phase slider**: Shifts the waveform in the time domain. For example, 90deg phase will move the waveform 'forward' by a quarter of the waveform's period.
 - **Duty Cycle slider**: Defines the percentage that the waveform is "on" (square wave only)
 
 #### Specifications
@@ -125,7 +126,10 @@ chmod +x package_mac.sh
 - AC Coupled pins filter out the very low frequency components (DC components) to display only AC signals
 
 #### Math Mode
-Syntax
+
+- Combine channels mathematically. eg. osc1 + osc2
+
+- **Syntax**
 - **Literals and Names**
   - Signals: osc1   osc2
   - Numbers: 3    -4.2    1e-3

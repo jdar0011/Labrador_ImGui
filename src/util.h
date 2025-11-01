@@ -60,6 +60,12 @@ static std::vector<std::string> volt_prefs = { "", "m" };
 // Voltage Units
 static std::vector<std::string> volt_formats = { "%.2f", "%.0f" };
 
+// Phase Units
+static std::vector<std::string> phase_prefs = { "" };
+// Phase Units
+static std::vector<std::string> phase_formats = { "%.0f" };
+
+
 //  textures
 extern int pinout_width;
 extern int pinout_height;
