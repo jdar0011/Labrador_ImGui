@@ -6,6 +6,8 @@
 #include <chrono>
 #include "OSCControl.hpp"
 #include "OscData.hpp"
+#include "NetworkAnalyserControl.hpp"
+#include "SpectrumAnalyserControl.hpp"
 #include "fftw3.h"
 #include "nfd.h"
 #include <fstream>
@@ -35,7 +37,7 @@ public:
 	/// </summary>
 	/// <param name="label">Name of controller</param>
 	/// <param name="size">Child window size</param>
-	PlotWidget(const char* label, ImVec2 size, const float* borderColour, OSCControl* osc_control)
+	PlotWidget(const char* label, ImVec2 size, const float* borderColour)
 	    : ControlWidget(label, size, borderColour)
 	    , size(size)
 	    , osc_control(osc_control)
@@ -58,6 +60,21 @@ public:
 		{
 			this->na = na;
 			this->na_cfg = na_cfg;
+		}
+	}
+	void SetControllers(OSCControl* osc_control, SpectrumAnalyserControl* sa_control, NetworkAnalyserControl* na_control)
+	{
+		if (osc_control != this->osc_control)
+		{
+			this->osc_control = osc_control;
+		}
+		if (sa_control != this->sa_control)
+		{
+			this->sa_control = sa_control;
+		}
+		if (na_control != this->na_control)
+		{
+			this->na_control = na_control;
 		}
 	}
 
@@ -85,9 +102,9 @@ public:
 
 		// --- Count how many vertical plots we need ---
 		int plot_count = 1; // base oscilloscope plot
-		if (osc_control->SpectrumAnalyserControls.On)
+		if (sa_control->SA.On)
 			plot_count++;
-		if (osc_control->NetworkAnalyserControls.Display && na != nullptr)
+		if (na_control->NA.Display && na != nullptr)
 			plot_count++;
 
 		// --- Divide vertical space evenly ---
@@ -99,7 +116,7 @@ public:
 		// --- Spectrum Analyser plots ---
 		ImVec2 plot_size_spectrum = ImVec2(0, 0);
 		ImVec2 plot_size_spectrum_magnitude = ImVec2(0, 0);
-		if (osc_control->SpectrumAnalyserControls.On) {
+		if (sa_control->SA.On) {
 			plot_size_spectrum = ImVec2(region_size.x, per_plot_height);
 			plot_size_spectrum_magnitude = plot_size_spectrum;
 		}
@@ -108,10 +125,10 @@ public:
 		ImVec2 plot_size_network = ImVec2(0, 0);
 		ImVec2 plot_size_network_magnitude = ImVec2(0, 0);
 		ImVec2 plot_size_network_phase = ImVec2(0, 0);
-		if (osc_control->NetworkAnalyserControls.Display && na != nullptr) {
+		if (na_control->NA.Display && na != nullptr) {
 			plot_size_network = ImVec2(region_size.x, per_plot_height);
 			plot_size_network_magnitude = plot_size_network;
-			if (osc_control->NetworkAnalyserControls.PhaseOn) {
+			if (na_control->NA.PhaseOn) {
 				plot_size_network_magnitude.x *= 0.5f; // split horizontally
 				plot_size_network_phase = plot_size_network_magnitude;
 			}
@@ -335,35 +352,35 @@ public:
 		// --- Spectrum Analyser ---
 		// Spectrum Analyser Acquire logic
 		ImPlotFlags spectrum_base_plot_flags = ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus;
-		if (osc_control->SpectrumAnalyserControls.Acquire)
+		if (sa_control->SA.Acquire)
 		{
-			switch (osc_control->SpectrumAnalyserControls.SignalComboCurrentItem)
+			switch (sa_control->SA.SignalComboCurrentItem)
 			{
 			case 0: // OSC1
-				OSC1Data.PerformSpectrumAnalysis(osc_control->SpectrumAnalyserControls.SampleRatesValues[osc_control->SpectrumAnalyserControls.SampleRatesComboCurrentItem],
-					osc_control->SpectrumAnalyserControls.TimeWindow,
-					osc_control->SpectrumAnalyserControls.WindowComboCurrentItem);
-				osc_control->SpectrumAnalyserControls.OSC1_last_captured = osc_control->SpectrumAnalyserControls.TimeWindow;
+				OSC1Data.PerformSpectrumAnalysis(sa_control->SA.SampleRatesValues[sa_control->SA.SampleRatesComboCurrentItem],
+					sa_control->SA.TimeWindow,
+					sa_control->SA.WindowComboCurrentItem);
+				sa_control->SA.OSC1_last_captured = sa_control->SA.TimeWindow;
 				break;
 			case 1: // OSC2
-				OSC2Data.PerformSpectrumAnalysis(osc_control->SpectrumAnalyserControls.SampleRatesValues[osc_control->SpectrumAnalyserControls.SampleRatesComboCurrentItem],
-					osc_control->SpectrumAnalyserControls.TimeWindow,
-					osc_control->SpectrumAnalyserControls.WindowComboCurrentItem);
-				osc_control->SpectrumAnalyserControls.OSC2_last_captured = osc_control->SpectrumAnalyserControls.TimeWindow;
+				OSC2Data.PerformSpectrumAnalysis(sa_control->SA.SampleRatesValues[sa_control->SA.SampleRatesComboCurrentItem],
+					sa_control->SA.TimeWindow,
+					sa_control->SA.WindowComboCurrentItem);
+				sa_control->SA.OSC2_last_captured = sa_control->SA.TimeWindow;
 				break;
 			}
 		}
 		std::vector<double>* spectrum_mag_p = nullptr;
 		std::vector<double>* spectrum_freq_p = nullptr;
-		static int Previous_SAC_SignalComboCurrentItem = osc_control->SpectrumAnalyserControls.SignalComboCurrentItem;
-		static int Previous_SAC_UnitsComboCurrentItem = osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem;
+		static int Previous_SAC_SignalComboCurrentItem = sa_control->SA.SignalComboCurrentItem;
+		static int Previous_SAC_UnitsComboCurrentItem = sa_control->SA.UnitsComboCurrentItem;
 		AxisLimitRanges magnitude_range = magnitude_db_range;
 		static double constraint_mag_lower = magnitude_db_range.constraint_lower;
 		static double constraint_mag_upper = magnitude_db_range.constraint_upper;
-		switch (osc_control->SpectrumAnalyserControls.SignalComboCurrentItem)
+		switch (sa_control->SA.SignalComboCurrentItem)
 		{
 		case 0: // OSC1
-			switch (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem)
+			switch (sa_control->SA.UnitsComboCurrentItem)
 			{
 			case 0:
 				spectrum_mag_p = OSC1Data.GetSpectrumMagdB_p();
@@ -378,7 +395,7 @@ public:
 			ImPlot::SetNextLineStyle(osc_control->OSC1Colour);
 			break;
 		case 1: // OSC2
-			switch (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem)
+			switch (sa_control->SA.UnitsComboCurrentItem)
 			{
 			case 0:
 				spectrum_mag_p = OSC2Data.GetSpectrumMagdB_p();
@@ -395,18 +412,18 @@ public:
 		}
 		if (spectrum_mag_p->size() > 0)
 		{
-			osc_control->SpectrumAnalyserControls.AcquisitionExists = true;
+			sa_control->SA.AcquisitionExists = true;
 		}
 		else
 		{
-			osc_control->SpectrumAnalyserControls.AcquisitionExists = false;
+			sa_control->SA.AcquisitionExists = false;
 		}
-		// Plot Spectrum Analyser (this is messy could do with some cleaning at some point)
-		if (osc_control->SpectrumAnalyserControls.On)
+		// Plot Spectrum Analyser
+		if (sa_control->SA.On)
 		{
 			if (ImPlot::BeginPlot("##SpectrumMagnitude",plot_size_spectrum_magnitude,spectrum_base_plot_flags))
 			{
-				switch (osc_control->SpectrumAnalyserControls.SignalComboCurrentItem) 
+				switch (sa_control->SA.SignalComboCurrentItem) 
 				{
 					case 0: // OSC1
 						ImPlot::SetNextLineStyle(osc_control->OSC1Colour);
@@ -416,7 +433,7 @@ public:
 						break;
 				}
 				ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"Hz");
-				switch (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem)
+				switch (sa_control->SA.UnitsComboCurrentItem)
 				{
 				case 0:
 					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dbV");
@@ -428,10 +445,10 @@ public:
 				// initial limtis
 				ImPlot::SetupAxesLimits(init_freq_range_lower, init_freq_range_upper,
 					magnitude_range.init_lower, magnitude_range.init_upper, ImPlotCond_Once);
-				if (osc_control->SpectrumAnalyserControls.Autofit || osc_control->SpectrumAnalyserControls.Acquire || spectrum_was_off || 
-					(osc_control->SpectrumAnalyserControls.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem != Previous_SAC_UnitsComboCurrentItem)) // any changes that require axes limits to be changed
+				if (sa_control->SA.Autofit || sa_control->SA.Acquire || spectrum_was_off || 
+					(sa_control->SA.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (sa_control->SA.UnitsComboCurrentItem != Previous_SAC_UnitsComboCurrentItem)) // any changes that require axes limits to be changed
 				{
-					if (spectrum_mag_p->size() == 0)
+					if (spectrum_mag_p->size() <= 3)
 					{
 						ImPlot::SetupAxesLimits(init_freq_range_lower, init_freq_range_upper,
 							magnitude_range.init_lower, magnitude_range.init_upper, ImGuiCond_Always);
@@ -473,7 +490,7 @@ public:
 				}
 				static double last_x_min = init_freq_range_lower;
 				static double last_x_max = init_freq_range_upper;
-				if (last_x_min != ImPlot::GetPlotLimits().X.Min || last_x_max != ImPlot::GetPlotLimits().X.Max || osc_control->SpectrumAnalyserControls.Acquire || (osc_control->SpectrumAnalyserControls.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (osc_control->SpectrumAnalyserControls.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem != Previous_SAC_UnitsComboCurrentItem)) // any changes that require plot to be re-decimated
+				if (last_x_min != ImPlot::GetPlotLimits().X.Min || last_x_max != ImPlot::GetPlotLimits().X.Max || sa_control->SA.Acquire || (sa_control->SA.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (sa_control->SA.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (sa_control->SA.UnitsComboCurrentItem != Previous_SAC_UnitsComboCurrentItem)) // any changes that require plot to be re-decimated
 				{
 					// Subsample data to avoid excessive points on plot
 					spectrum_plot_data = DecimateLogPlotTrace(*spectrum_freq_p, *spectrum_mag_p);
@@ -483,8 +500,8 @@ public:
 				ImPlot::PlotLine("##Spectrum", spectrum_plot_data.x.data(), spectrum_plot_data.y.data(), spectrum_plot_data.y.size());
 				ImPlot::EndPlot();
 				// update prev state variables
-				Previous_SAC_SignalComboCurrentItem = osc_control->SpectrumAnalyserControls.SignalComboCurrentItem;
-				Previous_SAC_UnitsComboCurrentItem = osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem;
+				Previous_SAC_SignalComboCurrentItem = sa_control->SA.SignalComboCurrentItem;
+				Previous_SAC_UnitsComboCurrentItem = sa_control->SA.UnitsComboCurrentItem;
 			}
 			spectrum_was_off = false;
 		}
@@ -501,10 +518,10 @@ public:
 		AxisLimitRanges network_magnitude_range = magnitude_db_range;
 		static double network_constraint_mag_lower = magnitude_db_range.constraint_lower;
 		static double network_constraint_mag_upper = magnitude_db_range.constraint_upper;
-		static int Previous_NAC_UnitsComboCurrentItem = osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem;
+		static int Previous_NAC_UnitsComboCurrentItem = sa_control->SA.UnitsComboCurrentItem;
 		if (na != nullptr) {
 			na_freq = na->freqs();      // Hz, must be > 0 for log scale
-			switch (osc_control->NetworkAnalyserControls.UnitsComboCurrentItem)
+			switch (na_control->NA.UnitsComboCurrentItem)
 			{
 			case 0:
 				na_mag = na->mag_dB();
@@ -526,7 +543,7 @@ public:
 			std::vector<double> ticks;
 		};
 		static XTickBuf g_na_xticks;
-		if (osc_control->NetworkAnalyserControls.Display)
+		if (na_control->NA.Display)
 		{
 			// --- Magnitude Plot ------------------------------------------------------
 			if (ImPlot::BeginPlot("##NetworkAnalyser", plot_size_network_magnitude, network_base_plot_flags))
@@ -534,7 +551,7 @@ public:
 				// Add fallback ticks only when no 10^k labels are visible
 				
 				ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"Hz");
-				switch (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem)
+				switch (sa_control->SA.UnitsComboCurrentItem)
 				{
 				case 0:
 					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dbV");
@@ -543,7 +560,7 @@ public:
 					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
 					break;
 				}
-				if (osc_control->NetworkAnalyserControls.Autofit || na->running() || network_was_off || (Previous_NAC_UnitsComboCurrentItem != osc_control->NetworkAnalyserControls.UnitsComboCurrentItem))
+				if (na_control->NA.Autofit || na->running() || network_was_off || (Previous_NAC_UnitsComboCurrentItem != na_control->NA.UnitsComboCurrentItem))
 				{
 					if (!na_freq.empty() && !na_mag.empty()) {
 						double mag_max = *std::max_element(na_mag.begin(), na_mag.end());
@@ -597,7 +614,7 @@ public:
 				}
 				// Adaptive ticks from live view (no locking)
 				ApplyAdaptiveLogXTicks_Internal(ImAxis_X1);
-				ImPlot::SetNextLineStyle(osc_control->NetworkAnalyserColour);
+				ImPlot::SetNextLineStyle(na_control->NetworkAnalyserColour);
 				if (!na_freq.empty()) {
 					// Guard: log scale requires strictly positive x
 					// (skip if any non-positive values slipped in)
@@ -610,7 +627,7 @@ public:
 			}
 
 			// --- Phase Plot (optional) -----------------------------------------------
-			if (osc_control->NetworkAnalyserControls.PhaseOn)
+			if (na_control->NA.PhaseOn)
 			{
 				ImGui::SameLine();
 				if (ImPlot::BeginPlot("##NetworkAnalyserPhase", plot_size_network_phase, spectrum_base_plot_flags))
@@ -620,7 +637,7 @@ public:
 
 					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"rad");
 
-					if(osc_control->NetworkAnalyserControls.Autofit || na->running() || network_was_off || (Previous_NAC_UnitsComboCurrentItem != osc_control->NetworkAnalyserControls.UnitsComboCurrentItem))
+					if(na_control->NA.Autofit || na->running() || network_was_off || (Previous_NAC_UnitsComboCurrentItem != na_control->NA.UnitsComboCurrentItem))
 					{
 						if (!na_freq.empty() && !na_phase.empty()) {
 							double phase_max = *std::max_element(na_phase.begin(), na_phase.end());
@@ -662,7 +679,7 @@ public:
 					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, -M_PI, M_PI);
 					// Adaptive ticks from live view (no locking)
 					ApplyAdaptiveLogXTicks_Internal(ImAxis_X1);
-					ImPlot::SetNextLineStyle(osc_control->NetworkAnalyserColour);
+					ImPlot::SetNextLineStyle(na_control->NetworkAnalyserColour);
 					if (!na_freq.empty()) {
 						bool x_ok = std::all_of(na_freq.begin(), na_freq.end(), [](double f) { return f > 0; });
 						if (x_ok) {
@@ -673,7 +690,7 @@ public:
 				}
 			}
 			network_was_off = false;
-			Previous_SAC_UnitsComboCurrentItem = osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem;
+			Previous_SAC_UnitsComboCurrentItem = sa_control->SA.UnitsComboCurrentItem;
 		}
 		else
 		{
@@ -1340,6 +1357,8 @@ protected:
 	double init_voltage_range_lower = -1.0;
 	double init_voltage_range_upper = 5.0;
 	OSCControl* osc_control;
+	SpectrumAnalyserControl* sa_control;
+	NetworkAnalyserControl* na_control;
 	OscData OSC1Data = OscData(1);
 	OscData OSC2Data = OscData(2);
 	OscData MathData = OscData(0);
@@ -1372,59 +1391,103 @@ protected:
 		const std::vector<double>& y)
 	{
 		PlotTrace out;
-		if (x.size() != y.size() || x.empty()) return out;
+		const size_t N = x.size();
+		if (N == 0 || N != y.size()) return out;
 
-		ImVec2 pos = ImPlot::GetPlotPos();
-		ImVec2 size = ImPlot::GetPlotSize();
+		// Plot geometry
+		const ImPlotRect lim = ImPlot::GetPlotLimits();
+		double xmin = std::max(lim.X.Min, 1e-300);
+		double xmax = std::max(lim.X.Max, xmin * 1.0001);
+		if (!(xmin < xmax)) return out;
+
+		const ImVec2 size = ImPlot::GetPlotSize();
 		const int W = (int)size.x;
 		if (W <= 1) return out;
 
-		ImPlotRect lim = ImPlot::GetPlotLimits();
-		double xmin = std::max(lim.X.Min, 1e-300);
-		double xmax = std::max(lim.X.Max, xmin * 1.0001);
+		// Indices that bound the visible X-range
+		const size_t i_lo = (size_t)(std::lower_bound(x.begin(), x.end(), xmin) - x.begin());
+		const size_t i_hi_ub = (size_t)(std::upper_bound(x.begin(), x.end(), xmax) - x.begin()); // one past last in-range
+		if (i_lo >= i_hi_ub) {
+			// No points in view; optionally include nearest neighbors for continuity
+			if (i_lo > 0) { out.x.push_back(x[i_lo - 1]); out.y.push_back(y[i_lo - 1]); }
+			if (i_lo < N) { out.x.push_back(x[std::min(i_lo, N - 1)]); out.y.push_back(y[std::min(i_lo, N - 1)]); }
+			return out;
+		}
 
-		// Log bin edges per pixel column
-		std::vector<double> edge_f(W + 1);
+		// If only a handful of points are in range, just copy them (no decimation)
+		const size_t in_view_count = i_hi_ub - i_lo;
+		if (in_view_count <= (size_t)std::max(4, W / 8)) {
+			// include left guard if exists
+			if (i_lo > 0) { out.x.push_back(x[i_lo - 1]); out.y.push_back(y[i_lo - 1]); }
+			for (size_t k = i_lo; k < i_hi_ub; ++k) {
+				if (!out.x.empty() && x[k] == out.x.back() && y[k] == out.y.back()) continue;
+				out.x.push_back(x[k]); out.y.push_back(y[k]);
+			}
+			// include right guard if exists
+			if (i_hi_ub < N) { out.x.push_back(x[i_hi_ub]); out.y.push_back(y[i_hi_ub]); }
+			return out;
+		}
+
+		// Build log-space bin edges over the *visible* range
 		const double Lmin = std::log(xmin);
-		const double dL = (std::log(xmax) - Lmin) / W;
+		const double Lmax = std::log(xmax);
+		const double dL = (Lmax - Lmin) / W;
+
+		std::vector<double> edge_f(W + 1);
 		for (int c = 0; c <= W; ++c)
 			edge_f[c] = std::exp(Lmin + c * dL);
 
-		out.x.reserve(W * 2);
-		out.y.reserve(W * 2);
+		out.x.reserve((size_t)W * 2);
+		out.y.reserve((size_t)W * 2);
 
-		size_t i = (size_t)(std::lower_bound(x.begin(), x.end(), edge_f[0]) - x.begin());
+		auto push = [&](size_t idx) {
+			if (!out.x.empty() && x[idx] == out.x.back() && y[idx] == out.y.back()) return;
+			out.x.push_back(x[idx]); out.y.push_back(y[idx]);
+		};
+
+		// Left guard: include the sample just before the first in-range point to avoid left cutoff
+		if (i_lo > 0) push(i_lo - 1);
+
+		size_t i = i_lo;
+		bool pushed_any = false;
 		for (int c = 0; c < W; ++c) {
-			size_t j = (size_t)(std::lower_bound(x.begin() + i, x.end(), edge_f[c + 1]) - x.begin());
-
+			// clamp search to in-view upper bound
+			size_t j = (size_t)(std::lower_bound(x.begin() + i, x.begin() + i_hi_ub, edge_f[c + 1]) - x.begin());
 			if (i >= j) continue; // no points in this column
 
-			// first / last
-			size_t i_first = i, i_last = j - 1;
+			pushed_any = true;
 
-			// min / max in [i, j)
-			size_t i_min = i, i_max = i;
-			double ymin = y[i], ymax = y[i];
-			for (size_t k = i + 1; k < j; ++k) {
+			const size_t i_first = i;
+			const size_t i_last = j - 1;
+
+			// min / max within [i, j)
+			size_t i_min = i_first, i_max = i_first;
+			double ymin = y[i_first], ymax = y[i_first];
+			for (size_t k = i_first + 1; k < j; ++k) {
 				if (y[k] < ymin) { ymin = y[k]; i_min = k; }
 				if (y[k] > ymax) { ymax = y[k]; i_max = k; }
 			}
 
-			auto push = [&](size_t idx) {
-				if (!out.x.empty() && x[idx] == out.x.back() && y[idx] == out.y.back()) return;
-				out.x.push_back(x[idx]); out.y.push_back(y[idx]);
-			};
-
+			// First, extrema, last (classic min-max decimation)
 			push(i_first);
 			if (i_min != i_first && i_min != i_last) push(i_min);
 			if (i_max != i_first && i_max != i_last && i_max != i_min) push(i_max);
 			if (i_last != i_first) push(i_last);
 
-			i = j; // next bucket starts where this ended
+			i = j; // advance to next bin
 		}
+
+		// If nothing got pushed from bins (e.g., extremely sparse), copy the in-view span
+		if (!pushed_any) {
+			for (size_t k = i_lo; k < i_hi_ub; ++k) push(k);
+		}
+
+		// Right guard: include the first sample *after* the in-range block to avoid right cutoff
+		if (i_hi_ub < N) push(i_hi_ub);
 
 		return out;
 	}
+
 	// Network Analyser Stuff
 	NetworkAnalyser* na = nullptr;
 	NetworkAnalyser::Config* na_cfg = nullptr;

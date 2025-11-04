@@ -143,10 +143,10 @@
     <ClInclude Include="libs\exprtk\exprtk.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\MiniHLInput.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\NetworkAnalyser.hpp" />
+    <ClInclude Include="src\MiniHLInput.h" />
+    <ClInclude Include="src\NetworkAnalyserControl.hpp" />
+    <ClInclude Include="src\SpectrumAnalyserControl.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />

@@ -198,12 +198,14 @@ xcopy /y /d ".\libs\fftw\libfftw3-3.dll" "$(OutDir)"</Command>
     <ClInclude Include="src\CursorProperties.hpp" />
     <ClInclude Include="src\MiniHLInput.h" />
     <ClInclude Include="src\NetworkAnalyser.hpp" />
+    <ClInclude Include="src\NetworkAnalyserControl.hpp" />
     <ClInclude Include="src\OSCControl.hpp" />
     <ClInclude Include="src\OscData.hpp" />
     <ClInclude Include="src\PlotWidget.hpp" />
     <ClInclude Include="src\PSUControl.hpp" />
     <ClInclude Include="src\SGControl.hpp" />
     <ClInclude Include="src\SignalType.hpp" />
+    <ClInclude Include="src\SpectrumAnalyserControl.hpp" />
     <ClInclude Include="src\UIComponents.hpp" />
     <ClInclude Include="src\util.h" />
   </ItemGroup>

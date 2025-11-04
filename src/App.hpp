@@ -16,6 +16,8 @@
 #include <chrono>
 #include <thread>
 #include "NetworkAnalyser.hpp"
+#include "NetworkAnalyserControl.hpp"
+#include "SpectrumAnalyserControl.hpp"
 #ifdef NDEBUG
 #include <Windows.h>
 int windows_system(const char* cmd) {
@@ -134,8 +136,9 @@ class App : public AppBase<App>
 		OSCWidget.setPinoutImg((intptr_t)osc_tmp_texture, w, h);
 		GeneralHelp.setPinoutImg((intptr_t)glob_tmp_texture, gw, gh);
 
-		OSCWidget.SetNetworkAnalyser(&na,&na_cfg);
+		netCtlWidget.SetNetworkAnalyser(&na,&na_cfg);
 		PlotWidgetObj.SetNetworkAnalyser(&na, &na_cfg);
+		PlotWidgetObj.SetControllers(&OSCWidget, &specCtlWidget, &netCtlWidget);
 
 		IM_ASSERT(psu_ret);
 		IM_ASSERT(sg_ret);
@@ -289,6 +292,13 @@ class App : public AppBase<App>
 			// Render Oscilloscope Widget
 			OSCWidget.Render();
 
+			// Render Spectrum Analyser Widget
+			specCtlWidget.Render();
+
+			// Render Network Analyser Widget
+			netCtlWidget.Render();
+
+
 			//ImGui::EndChild(); // End right column
 			//ImGui::End(); 
 
@@ -312,7 +322,7 @@ class App : public AppBase<App>
 					SG1Widget.controlLab();
 					SG2Widget.controlLab();
 				}
-				if (OSCWidget.NetworkAnalyserControls.Acquire) // acquire state set once on button press
+				if (netCtlWidget.NA.Acquire) // acquire state set once on button press
 				{
 					na.StartSweep(na_cfg);
 				}
@@ -570,11 +580,14 @@ class App : public AppBase<App>
 	    constants::SG2_ACCENT, 2, &PSUWidget.voltage);
 	OSCControl OSCWidget
 	    = OSCControl("Plot Settings", ImVec2(0, 0), constants::OSC_ACCENT);
+	SpectrumAnalyserControl specCtlWidget
+		= SpectrumAnalyserControl("Spectrum Analyser", ImVec2(0, 0), constants::SPECTRUM_ANALYSER_ACCENT);
+	NetworkAnalyserControl  netCtlWidget = NetworkAnalyserControl("Network Analyser", ImVec2(0, 0), constants::NETWORK_ANALYSER_ACCENT);
 	PlotWidget PlotWidgetObj 
-		= PlotWidget("Plot Window",ImVec2(0, 0),constants::PLOT_ACCENT, &OSCWidget);
+		= PlotWidget("Plot Window",ImVec2(0, 0),constants::PLOT_ACCENT);
 	HelpWidget TroubleShoot = HelpWidget("Troubleshooting"); // Purely for universal help
 	HelpWidget GeneralHelp = HelpWidget("General");
-	ControlWidget* widgets[7]
-	    = { &GeneralHelp, &TroubleShoot, &PSUWidget, &SG1Widget, &SG2Widget, &OSCWidget, &PlotWidgetObj };
+	ControlWidget* widgets[9]
+	    = { &GeneralHelp, &TroubleShoot, &PSUWidget, &SG1Widget, &SG2Widget, &OSCWidget, &specCtlWidget, &netCtlWidget, &PlotWidgetObj };
 };
 

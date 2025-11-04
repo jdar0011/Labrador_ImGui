@@ -313,7 +313,6 @@ public:
 				periodic_data = {};
 			}
 		}
-
 	}
 	double GetVpp() // specific function for finding Vpp that attempts to remove outliers
 	{
