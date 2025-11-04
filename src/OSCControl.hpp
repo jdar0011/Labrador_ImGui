@@ -12,6 +12,8 @@
 #include <array>
 #include <chrono>
 #include <algorithm>
+#include "implot.h"
+#include "NetworkAnalyser.hpp"
 using Clock = std::chrono::steady_clock;
 
 /// <summary>Oscilloscope Control Widget
@@ -87,9 +89,9 @@ public:
 		float LookbackTimeWindow = 1.f;
 		const char* SignalComboList[2] = { "OSC1", "OSC2" }; // Add Math Later
 		// Pointers ImGui::Combo will read
-		std::array<const char*, 56> SampleRatesComboList;
+		std::array<const char*, 55> SampleRatesComboList;
 		// OWN the storage here so c_str() stays valid
-		std::array<std::string, 56> SampleRatesLabels;
+		std::array<std::string, 55> SampleRatesLabels;
 		// Int values that I can use directly
 		std::array<int, 56> SampleRatesValues;
 		const char* WindowComboList[2] = { "Hann", "Rectangular" };
@@ -105,9 +107,32 @@ public:
 		double OSC2_last_captured = -1;
 	} SpectrumAnalyserControls;
 	// Network Analyser stuff
+	struct NetworkAcquireState {
+		bool acquiring = false;          // currently running
+		double t_start_s = 0.0;          // time when started
+		double elapsed_last_s = 0.0;     // total elapsed
+		double success_until_time = 0.0; // time to stop showing "?"
+	};
 	struct
 	{
 		bool Display = false;
+		bool Acquire = false;
+		const char* SignalGenComboList[2] = { "SG1", "SG2" };
+		const char* OscComboList[2] = { "OSC1", "OSC2" };
+		int StimulusComboCurrentItem = 0;
+		int InputComboCurrentItem = 0;
+		int ResponseComboCurrentItem = 1;
+		float ComboBoxWidth = 100.0f;
+		bool PhaseOn = false;
+		float ItemWidth = 100.0f;
+		double f_start = 10;
+		double f_stop = 1000;
+		const char* UnitsComboList[2] = { "dbV", "V RMS" };
+		int UnitsComboCurrentItem = 0;
+		bool Autofit = false;
+		bool AcquisitionExists = false;
+		int PointSpacingComboCurrentItem = 0;
+		const char* PointSpacingComboList[2] = { "Logarithmic", "Linear" };
 	} NetworkAnalyserControls;
 	// Math stuff
 	struct MathControls
@@ -137,6 +162,19 @@ public:
 	{
 		BuildSampleRatesCombo();
 	}
+
+	void SetNetworkAnalyser(NetworkAnalyser* na, NetworkAnalyser::Config* na_cfg)
+	{
+		if (na != this->na)
+		{
+			this->na = na;
+		}
+		if (na_cfg != this->na_cfg)
+		{
+			this->na_cfg = na_cfg;
+		}
+	}
+
 	/// <summary>
 	/// Render UI elements for oscilloscope control
 	/// </summary>
@@ -151,9 +189,9 @@ public:
 			//// TODO: Implement Single Capture (Stop after one trigger event is found)
 			//ImGui::Button("Single", ImVec2(120, 30));
 			//ImGui::TableNextColumn();
-			AutofitY = WhiteOutlineButton(u8"Auto Fit  \u2195", ImVec2(button_width, 30));
+			AutofitY = WhiteOutlineButton(u8"Auto Fit  \u2195##Vertical", ImVec2(button_width, 30));
 			ImGui::TableNextColumn();
-			AutofitX = WhiteOutlineButton(u8"Auto Fit  \u2194", ImVec2(button_width, 30));
+			AutofitX = WhiteOutlineButton(u8"Auto Fit  \u2194##Horizontal", ImVec2(button_width, 30));
 			ImGui::EndTable();
 		}
 
@@ -425,7 +463,7 @@ public:
 				break;
 		}
 		ImGui::SameLine();
-		SpectrumAnalyserControls.Autofit = WhiteOutlineButton("Auto Fit", ImVec2(100, 30));
+		SpectrumAnalyserControls.Autofit = WhiteOutlineButton("Auto Fit##SpectrumAnalyser", ImVec2(100, 30));
 		if (SpectrumAnalyserControls.AcquisitionExists)
 		{
 			switch (SpectrumAnalyserControls.SignalComboCurrentItem)
@@ -505,7 +543,7 @@ public:
 					ImGui::Combo("##Vertical Units",
 						&SpectrumAnalyserControls.UnitsComboCurrentItem,
 						SpectrumAnalyserControls.UnitsComboList,
-						IM_ARRAYSIZE(SpectrumAnalyserControls.WindowComboList));
+						IM_ARRAYSIZE(SpectrumAnalyserControls.UnitsComboList));
 				});
 
 				row("Acquistion Mode", [&] {
@@ -523,6 +561,134 @@ public:
 		ImGui::Text("Display");
 		ImGui::SameLine();
 		ToggleSwitch("##NetworkAnalyserOn", &NetworkAnalyserControls.Display, ImU32(NetworkAnalyserColour));
+		ImGui::SameLine();
+		ImGui::Text("Phase On");
+		ImGui::SameLine();
+		ToggleSwitch("##NetworkAnalyserPhaseOn", &NetworkAnalyserControls.PhaseOn, ImU32(NetworkAnalyserColour));
+		ImGui::Text("Stimulus Generator");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(NetworkAnalyserControls.ComboBoxWidth);
+		ImGui::Combo("##NetworkAnalyserGenCombo", &NetworkAnalyserControls.StimulusComboCurrentItem,
+			NetworkAnalyserControls.SignalGenComboList, IM_ARRAYSIZE(NetworkAnalyserControls.SignalGenComboList));
+		ImGui::Text("Reference (Input) Channel");
+		ImGui::SameLine();
+		// Assume OscComboList == {"Channel 1", "Channel 2"} (indices 0 and 1)
+		int& in = NetworkAnalyserControls.InputComboCurrentItem;
+		int& out = NetworkAnalyserControls.ResponseComboCurrentItem;
+
+		// Clamp to {0,1} and ensure they start mirrored
+		in = (in != 0); // 0 or 1
+		out = (out != 0);
+		if (in == out) out = 1 - in;
+
+		// Draw + mirror logic: the one you edit wins this frame
+		ImGui::SetNextItemWidth(NetworkAnalyserControls.ComboBoxWidth);
+		bool changed_in = ImGui::Combo("##NetworkAnalyserInputCombo",
+			&in, NetworkAnalyserControls.OscComboList,
+			IM_ARRAYSIZE(NetworkAnalyserControls.OscComboList));
+		if (changed_in) out = 1 - in;
+
+		ImGui::Text("Response (Output) Channel");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(NetworkAnalyserControls.ComboBoxWidth);
+		bool changed_out = ImGui::Combo("##NetworkAnalyserResponseCombo",
+			&out, NetworkAnalyserControls.OscComboList,
+			IM_ARRAYSIZE(NetworkAnalyserControls.OscComboList));
+		if (changed_out) in = 1 - out;
+		// Channel Logic
+		na_cfg->gen_channel = NetworkAnalyserControls.StimulusComboCurrentItem + 1; // SG1=1, SG2=2
+		na_cfg->ch_input = (in == 0 ? 1 : 2);
+		na_cfg->ch_output = (out == 0 ? 1 : 2);
+
+		RangeSliderDoubleLog("Frequency Range", &NetworkAnalyserControls.f_start, &NetworkAnalyserControls.f_stop,
+			1, 5000,
+			0.1,           // min span in Hz
+			true,          // auto-swap
+			true,          // snap to 1-2-5 on release
+			0.0f,          // width: use remaining content width
+			5.0f,          // bar thickness px
+			8.0f);         // knob radius px
+		// Update config with new frequency range
+		na_cfg->f_start = NetworkAnalyserControls.f_start;
+		na_cfg->f_stop = NetworkAnalyserControls.f_stop;
+		// If you want tau terms counted, set:
+		na_cfg->use_ifbw_limits = false; // or true if you DO want 3–4tau waits
+
+		// Build label from UI config so it updates while dragging
+		static NetworkAcquireState net_acq_state;
+
+		// Replace the simple button with the dynamic acquire overlay
+		if (DrawNetworkAcquireButton(net_acq_state, na, na_cfg, ImVec2(200, 30))) {
+			// Optional: add any logging or event trigger on start
+			printf("Network Analyser acquisition started\n");
+		}
+		ImGui::SameLine();
+		NetworkAnalyserControls.Autofit = WhiteOutlineButton("Auto Fit##NetworkAnalyser", ImVec2(100, 30));
+
+		ImGui::SetNextItemOpen(false, ImGuiCond_Once);
+		if (ImGui::CollapsingHeader("Advanced Options##NetworkOptions", ImGuiTreeNodeFlags_SpanAvailWidth))
+		{
+			// Table: [ Label | Control ]
+			if (ImGui::BeginTable("NetworkAdvTbl", 2, ImGuiTableFlags_SizingStretchProp))
+			{
+				// Fixed label column, stretchy control column
+				ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 170.0f);
+				ImGui::TableSetupColumn("Control", ImGuiTableColumnFlags_WidthStretch);
+
+				// Helper to draw one row
+				auto row = [&](const char* label, auto widget)
+				{
+					ImGui::TableNextRow();
+
+					// Left: label (text)
+					ImGui::TableSetColumnIndex(0);
+					ImGui::AlignTextToFramePadding();
+					ImGui::TextUnformatted(label);
+
+					// Right: control (fills width unless you want a fixed ItemWidth)
+					ImGui::TableSetColumnIndex(1);
+					if (NetworkAnalyserControls.ItemWidth > 0)
+						ImGui::SetNextItemWidth(NetworkAnalyserControls.ItemWidth);
+					else
+						ImGui::SetNextItemWidth(-FLT_MIN); // fill remaining width
+
+					widget();
+				};
+
+				// Rows
+				
+
+
+				row("Vertical Units", [&] {
+					ImGui::Combo("##Vertical Units",
+						&NetworkAnalyserControls.UnitsComboCurrentItem,
+						NetworkAnalyserControls.UnitsComboList,
+						IM_ARRAYSIZE(NetworkAnalyserControls.UnitsComboList));
+				});
+
+				row("Number of Data Points", [&] {
+					ImGui::SliderInt("##Points", &na_cfg->points, 2, 501, "%d",
+						ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_NoRoundToFormat);
+				});
+
+				row("Point Spacing", [&] {
+					ImGui::Combo("##PointSpacing", &NetworkAnalyserControls.PointSpacingComboCurrentItem,
+						NetworkAnalyserControls.PointSpacingComboList,
+						IM_ARRAYSIZE(NetworkAnalyserControls.PointSpacingComboList));
+				});
+				switch (NetworkAnalyserControls.PointSpacingComboCurrentItem)
+				{
+				case 0:
+						na_cfg->log_spacing = true;
+						break;
+				case 1:
+					na_cfg->log_spacing = false;
+						break;
+				}
+
+				ImGui::EndTable();
+			}
+		}
 	}
 
 
@@ -713,7 +879,7 @@ private:
 				return std::to_string(hz) + " Hz";
 			}
 		};
-		for (int i = 0; i < 56; ++i) {
+		for (int i = 0; i < 55; ++i) {
 			// Format however you want (Hz/kHz etc.)
 			SpectrumAnalyserControls.SampleRatesLabels[i] =
 				fmt_hz_khz(constants::DIVISORS_375000[55 - i]);
@@ -724,4 +890,315 @@ private:
 			SpectrumAnalyserControls.SampleRatesValues[i] = constants::DIVISORS_375000[55 - i];
 		}
 	}
+	
+
+	// Network Analyser Stuff
+	NetworkAnalyser* na;
+	NetworkAnalyser::Config* na_cfg;
+	// Log-scale two-handle range slider (pure ImGui) with:
+	// - reserved top space for labels
+	// - explicit sizing
+	// - left/right padding so right-side label/knob don't clip when at max
+	//
+	// Usage example (stretch + padding):
+	//   RangeSliderDoubleLog("Frequency", &f_lo, &f_hi,
+	//                        0.1, 5e6, 0.1, true, true,
+	//                        0.0f, 5.0f, 8.0f, 4.0f, 0.0f, 8.0f);
+
+	inline bool RangeSliderDoubleLog(const char* label,
+		double* v_lower, double* v_upper,
+		double v_min, double v_max,
+		double min_span_hz = 0.0,
+		bool   auto_swap = true,
+		bool   snap_125_on_rel = false,
+		float  widget_width = 0.0f,  // <=0: use remaining width
+		float  bar_thickness_px = 4.0f,
+		float  knob_radius_px = 7.0f,
+		float  top_label_margin_px = 4.0f,
+		float  left_pad_px = 0.0f,
+		float  right_pad_px = 16.0f)
+	{
+		IM_ASSERT(v_lower && v_upper);
+		if (!(v_min > 0.0 && v_min < v_max))
+			return false;
+
+		// ---- Local helpers ----
+		auto clampd = [](double x, double a, double b) -> double {
+			return x < a ? a : (x > b ? b : x);
+		};
+		auto snap125 = [](double x) -> double {
+			if (x <= 0) return x;
+			double e = std::floor(std::log10(x));
+			double m = x / std::pow(10.0, e);
+			double t = (m < 1.5) ? 1.0 : (m < 3.5 ? 2.0 : (m < 7.5 ? 5.0 : 10.0));
+			return t * std::pow(10.0, e);
+		};
+		auto format_hz_si = [](char* buf, size_t n, double hz) {
+			const char* unit = "Hz";
+			double v = hz;
+			if (hz >= 1e9) { v = hz / 1e9; unit = "GHz"; }
+			else if (hz >= 1e6) { v = hz / 1e6; unit = "MHz"; }
+			else if (hz >= 1e3) { v = hz / 1e3; unit = "kHz"; }
+			std::snprintf(buf, n, "%.4g %s", v, unit); // 4 significant figures
+		};
+		struct LogMap {
+			double lmin, lmax, inv_span;
+			LogMap(double vmin, double vmax) {
+				lmin = std::log10(vmin);
+				lmax = std::log10(vmax);
+				inv_span = 1.0 / (lmax - lmin);
+			}
+			double v_to_t(double v) const { return (std::log10(v) - lmin) * inv_span; } // [0,1]
+			double t_to_v(double t) const { return std::pow(10.0, lmin + (lmax - lmin) * t); }
+		};
+
+		// ---- Sanitize initial values ----
+		double lo = clampd(*v_lower, v_min, v_max);
+		double hi = clampd(*v_upper, v_min, v_max);
+		auto apply_constraints = [&](double& a, double& b) {
+			a = clampd(a, v_min, v_max);
+			b = clampd(b, v_min, v_max);
+			if (auto_swap) {
+				if (a > b) std::swap(a, b);
+				if (min_span_hz > 0 && b - a < min_span_hz)
+					b = clampd(a + min_span_hz, v_min, v_max);
+			}
+			else {
+				if (min_span_hz > 0) {
+					if (a > b - min_span_hz) a = b - min_span_hz;
+					if (b < a + min_span_hz) b = a + min_span_hz;
+				}
+				a = clampd(a, v_min, v_max);
+				b = clampd(b, v_min, v_max);
+			}
+		};
+		apply_constraints(lo, hi);
+
+		ImGuiWindow* window = ImGui::GetCurrentWindow();
+		if (window->SkipItems) { *v_lower = lo; *v_upper = hi; return false; }
+
+		const ImGuiStyle& style = ImGui::GetStyle();
+		const ImGuiID id = ImGui::GetID(label);
+
+		// Layout: "Label  [slider widget]"
+		ImGui::BeginGroup();
+		ImGui::AlignTextToFramePadding();
+		ImGui::TextUnformatted(label);
+		ImGui::SameLine(0.0f, style.ItemInnerSpacing.x);
+
+		// Pre-format labels to reserve vertical space above the bar
+		char lbl_lo[32], lbl_hi[32];
+		format_hz_si(lbl_lo, sizeof(lbl_lo), lo);
+		format_hz_si(lbl_hi, sizeof(lbl_hi), hi);
+		ImVec2 sz_lo = ImGui::CalcTextSize(lbl_lo);
+		ImVec2 sz_hi = ImGui::CalcTextSize(lbl_hi);
+		const float labels_h = (sz_lo.y > sz_hi.y ? sz_lo.y : sz_hi.y);
+
+		// Compute widget area width with paddings
+		float avail = ImGui::GetContentRegionAvail().x;
+		float inner_w = (widget_width > 0.0f ? widget_width : avail);
+		// Shrink by left/right padding so drawing/interaction stays in-bounds
+		inner_w = ImMax(1.0f, inner_w - (left_pad_px + right_pad_px));
+
+		const float grab_w = knob_radius_px * 2.0f; // click zone width per knob
+		const float base_h = ImMax(knob_radius_px * 2.0f + 4.0f, bar_thickness_px + 8.0f);
+		const float widget_h = labels_h + top_label_margin_px + base_h;
+
+		// Position: shift start by left_pad_px so the bar/knobs are inset
+		ImVec2 pos = ImGui::GetCursorScreenPos();
+		pos.x += left_pad_px;
+
+		ImVec2 size(inner_w, widget_h);
+		ImRect bb(pos, ImVec2(pos.x + size.x, pos.y + size.y));
+		ImGui::ItemSize(size, style.FramePadding.y);
+		if (!ImGui::ItemAdd(bb, id)) { *v_lower = lo; *v_upper = hi; ImGui::EndGroup(); return false; }
+
+		// Geometry of bar (placed at bottom; labels area at top)
+		const float bar_y = bb.Max.y - (base_h * 0.5f);
+		const float bar_x0 = bb.Min.x + grab_w * 0.5f;
+		const float bar_x1 = bb.Max.x - grab_w * 0.5f;
+		const float bar_w = ImMax(1.0f, bar_x1 - bar_x0);
+
+		LogMap lm(v_min, v_max);
+		auto v_to_x = [&](double v) -> float { return (float)(bar_x0 + lm.v_to_t(v) * bar_w); };
+		auto x_to_v = [&](float  x) -> double { return lm.t_to_v(clampd((x - bar_x0) / bar_w, 0.0, 1.0)); };
+
+		float x_lo = v_to_x(lo);
+		float x_hi = v_to_x(hi);
+
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		const ImU32 col_bar_bg = ImGui::GetColorU32(ImGuiCol_FrameBg);
+		const ImU32 col_bar_sel = ImGui::GetColorU32(ImGuiCol_SliderGrabActive);
+		const ImU32 col_grab = ImGui::GetColorU32(ImGuiCol_SliderGrab);
+		const ImU32 col_grab_act = ImGui::GetColorU32(ImGuiCol_SliderGrabActive);
+		const ImU32 col_text = ImGui::GetColorU32(ImGuiCol_Text);
+
+		// Track
+		dl->AddRectFilled(ImVec2(bar_x0, bar_y - bar_thickness_px * 0.5f),
+			ImVec2(bar_x1, bar_y + bar_thickness_px * 0.5f),
+			col_bar_bg, bar_thickness_px * 0.5f);
+
+		// Selected region
+		float sel_x0 = (x_lo < x_hi ? x_lo : x_hi);
+		float sel_x1 = (x_lo < x_hi ? x_hi : x_lo);
+		dl->AddRectFilled(ImVec2(sel_x0, bar_y - bar_thickness_px * 0.5f),
+			ImVec2(sel_x1, bar_y + bar_thickness_px * 0.5f),
+			col_bar_sel, bar_thickness_px * 0.5f);
+
+		// Two invisible buttons for handles
+		ImGui::PushID(id);
+		ImRect lo_rect(ImVec2(x_lo - grab_w * 0.5f, bb.Min.y), ImVec2(x_lo + grab_w * 0.5f, bb.Max.y));
+		ImGui::SetCursorScreenPos(lo_rect.Min);
+		ImGui::InvisibleButton("lo", lo_rect.GetSize());
+		bool lo_active = ImGui::IsItemActive();
+		bool lo_hover = ImGui::IsItemHovered();
+
+		ImRect hi_rect(ImVec2(x_hi - grab_w * 0.5f, bb.Min.y), ImVec2(x_hi + grab_w * 0.5f, bb.Max.y));
+		ImGui::SetCursorScreenPos(hi_rect.Min);
+		ImGui::InvisibleButton("hi", hi_rect.GetSize());
+		bool hi_active = ImGui::IsItemActive();
+		bool hi_hover = ImGui::IsItemHovered();
+
+		// Click on track: activate nearest handle
+		if (!lo_active && !hi_active && ImGui::IsMouseClicked(0) &&
+			ImGui::IsMouseHoveringRect(bb.Min, bb.Max)) {
+			float mx = ImGui::GetIO().MousePos.x;
+			if (fabsf(mx - x_lo) <= fabsf(mx - x_hi)) {
+				ImGui::SetActiveID(ImGui::GetID("lo"), window);
+				ImGui::SetFocusID(ImGui::GetID("lo"), window);
+				lo_active = true;
+			}
+			else {
+				ImGui::SetActiveID(ImGui::GetID("hi"), window);
+				ImGui::SetFocusID(ImGui::GetID("hi"), window);
+				hi_active = true;
+			}
+		}
+
+		bool changed_now = false;
+
+		// Drag logic (log mapped)
+		if (lo_active) {
+			float mx = ImGui::GetIO().MousePos.x;
+			lo = x_to_v(mx);
+			apply_constraints(lo, hi);
+			changed_now = true;
+		}
+		if (hi_active) {
+			float mx = ImGui::GetIO().MousePos.x;
+			hi = x_to_v(mx);
+			apply_constraints(lo, hi);
+			changed_now = true;
+		}
+
+		// Knobs
+		x_lo = v_to_x(lo);
+		x_hi = v_to_x(hi);
+		const ImU32 lo_col = (lo_active || lo_hover) ? col_grab_act : col_grab;
+		const ImU32 hi_col = (hi_active || hi_hover) ? col_grab_act : col_grab;
+		dl->AddCircleFilled(ImVec2(x_lo, bar_y), knob_radius_px, lo_col, 20);
+		dl->AddCircleFilled(ImVec2(x_hi, bar_y), knob_radius_px, hi_col, 20);
+
+		// Labels ABOVE knobs (inside reserved top area)
+		format_hz_si(lbl_lo, sizeof(lbl_lo), lo);
+		format_hz_si(lbl_hi, sizeof(lbl_hi), hi);
+		sz_lo = ImGui::CalcTextSize(lbl_lo);
+		sz_hi = ImGui::CalcTextSize(lbl_hi);
+		const float text_baseline = bb.Min.y + labels_h; // end of label block
+		dl->AddText(ImVec2(x_lo - sz_lo.x * 0.5f, text_baseline - sz_lo.y), col_text, lbl_lo);
+		dl->AddText(ImVec2(x_hi - sz_hi.x * 0.5f, text_baseline - sz_hi.y), col_text, lbl_hi);
+
+		// Snap to 1-2-5 on release
+		static bool lo_was_active = false, hi_was_active = false;
+		if (lo_was_active && !lo_active && snap_125_on_rel) { lo = snap125(lo); apply_constraints(lo, hi); changed_now = true; }
+		if (hi_was_active && !hi_active && snap_125_on_rel) { hi = snap125(hi); apply_constraints(lo, hi); changed_now = true; }
+		lo_was_active = lo_active;
+		hi_was_active = hi_active;
+
+		ImGui::PopID();
+		ImGui::EndGroup();
+
+		bool any_change = changed_now || (lo != *v_lower) || (hi != *v_upper);
+		*v_lower = lo; *v_upper = hi;
+		return any_change;
+	}
+
+	static bool DrawNetworkAcquireButton(
+		NetworkAcquireState& st,
+		NetworkAnalyser* na,
+		NetworkAnalyser::Config* cfg,
+		ImVec2 size = ImVec2(200, 30))
+	{
+		const double now = ImGui::GetTime();
+		bool clicked = false;
+
+		// --- Update acquisition state ---
+		if (st.acquiring && na) {
+			st.elapsed_last_s = now - st.t_start_s;
+			if (na->done()) {
+				st.acquiring = false;
+				st.success_until_time = now + 1.2; // flash for 1.2s
+			}
+		}
+
+		// --- Compute label text ---
+		char label[128];
+		if (st.acquiring && na && na->CurrentConfig().points > 0) {
+			const int total = na->CurrentConfig().points;
+			const int done = std::clamp(na->current_index(), 0, total);
+			const double frac = (double)done / (double)total;
+
+			std::snprintf(label, sizeof(label),
+				"Acquiring: %d / %d (%.1f s)", done, total, st.elapsed_last_s);
+
+			// Draw progress overlay (behind text, inside button bounds)
+			ImVec2 p_min = ImGui::GetCursorScreenPos();
+			ImVec2 p_max = ImVec2(p_min.x + size.x, p_min.y + size.y);
+			float w = (float)((p_max.x - p_min.x) * frac);
+			ImGui::GetWindowDrawList()->AddRectFilled(
+				p_min, ImVec2(p_min.x + w, p_max.y),
+				IM_COL32(80, 255, 100, 120), ImGui::GetStyle().FrameRounding);
+		}
+		else if (now < st.success_until_time) {
+			std::snprintf(label, sizeof(label),
+				u8"Completed in %.1f s  \u2713", st.elapsed_last_s); // ?
+		}
+		else {
+			const double est = na ? na->EstimateSweepSeconds_UI(*cfg) : 0.0;
+			std::snprintf(label, sizeof(label),
+				"Acquire (est. %.0f s)", est);
+		}
+
+		// --- Draw button with white outline ---
+		// (assuming you already have this function defined elsewhere)
+		if (WhiteOutlineButton(label, size)) {
+			if (!st.acquiring && na) {
+				na->StartSweep(*cfg);
+				st.acquiring = true;
+				st.t_start_s = now;
+				st.elapsed_last_s = 0.0;
+				st.success_until_time = 0.0;
+				clicked = true;
+			}
+		}
+
+		// --- Re-draw overlay inside button after WhiteOutlineButton ---
+		if (st.acquiring && na && na->CurrentConfig().points > 0) {
+			const int total = na->CurrentConfig().points;
+			const int done = std::clamp(na->current_index(), 0, total);
+			const double frac = (double)done / (double)total;
+
+			ImVec2 r_min = ImGui::GetItemRectMin();
+			ImVec2 r_max = ImGui::GetItemRectMax();
+			ImGui::GetWindowDrawList()->AddRectFilled(
+				r_min, ImVec2(r_min.x + (r_max.x - r_min.x) * frac, r_max.y),
+				IM_COL32(80, 255, 100, 120), ImGui::GetStyle().FrameRounding);
+		}
+
+		return clicked;
+	}
+
+
+
+
 };

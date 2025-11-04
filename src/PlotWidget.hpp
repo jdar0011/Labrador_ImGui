@@ -13,7 +13,8 @@
 #include <float.h>
 #include <math.h>
 #include "ControlWidget.hpp"
-
+#include "NetworkAnalyser.hpp"
+#include "implot_internal.h"
 #include <chrono>
 using Clock = std::chrono::steady_clock;
 
@@ -51,6 +52,14 @@ public:
 	{
 		size = new_size;
 	}
+	void SetNetworkAnalyser(NetworkAnalyser* na, NetworkAnalyser::Config* na_cfg)
+	{
+		if (na != this->na)
+		{
+			this->na = na;
+			this->na_cfg = na_cfg;
+		}
+	}
 
 	/// <summary>
 	/// Generic function to render plot widget with correct style
@@ -68,20 +77,46 @@ public:
 		bool show_cursor_props = (osc_control->Cursor1toggle && osc_control->Cursor2toggle);
 		// Show text underneath if cursors or signal properties activated
 		bool text_window = show_cursor_props || osc_control->SignalPropertiesToggle;
+
+		// --- Compute available region ---
 		ImVec2 region_size = ImGui::GetContentRegionAvail();
 		float row_height = ImGui::GetFrameHeightWithSpacing();
-		ImVec2 plot_size_total
-		    = ImVec2(region_size.x, region_size.y - (text_window ? 3 * row_height : row_height));
-		ImVec2 plot_size
-			= ImVec2(region_size.x, region_size.y - (text_window ? 3 * row_height : row_height));
+		float usable_height = region_size.y - (text_window ? 3.0f * row_height : row_height);
+
+		// --- Count how many vertical plots we need ---
+		int plot_count = 1; // base oscilloscope plot
+		if (osc_control->SpectrumAnalyserControls.On)
+			plot_count++;
+		if (osc_control->NetworkAnalyserControls.Display && na != nullptr)
+			plot_count++;
+
+		// --- Divide vertical space evenly ---
+		float per_plot_height = usable_height / (float)plot_count;
+
+		// --- Oscilloscope plot ---
+		ImVec2 plot_size = ImVec2(region_size.x, per_plot_height);
+
+		// --- Spectrum Analyser plots ---
 		ImVec2 plot_size_spectrum = ImVec2(0, 0);
 		ImVec2 plot_size_spectrum_magnitude = ImVec2(0, 0);
-		if (osc_control->SpectrumAnalyserControls.On)
-		{
-			plot_size.y /= 2;
-			plot_size_spectrum = plot_size;
+		if (osc_control->SpectrumAnalyserControls.On) {
+			plot_size_spectrum = ImVec2(region_size.x, per_plot_height);
 			plot_size_spectrum_magnitude = plot_size_spectrum;
 		}
+
+		// --- Network Analyser plots ---
+		ImVec2 plot_size_network = ImVec2(0, 0);
+		ImVec2 plot_size_network_magnitude = ImVec2(0, 0);
+		ImVec2 plot_size_network_phase = ImVec2(0, 0);
+		if (osc_control->NetworkAnalyserControls.Display && na != nullptr) {
+			plot_size_network = ImVec2(region_size.x, per_plot_height);
+			plot_size_network_magnitude = plot_size_network;
+			if (osc_control->NetworkAnalyserControls.PhaseOn) {
+				plot_size_network_magnitude.x *= 0.5f; // split horizontally
+				plot_size_network_phase = plot_size_network_magnitude;
+			}
+		}
+
 		
 		ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(255, 255, 255, 255));
 		UpdateOscData();
@@ -295,6 +330,9 @@ public:
 
 			ImPlot::EndPlot();
 		}
+
+
+		// --- Spectrum Analyser ---
 		// Spectrum Analyser Acquire logic
 		ImPlotFlags spectrum_base_plot_flags = ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus;
 		if (osc_control->SpectrumAnalyserControls.Acquire)
@@ -454,6 +492,195 @@ public:
 		{
 			spectrum_was_off = true;
 		}
+		
+		// Network Analyser
+		ImPlotFlags network_base_plot_flags = ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus;
+		std::vector<double> na_freq;
+		std::vector<double> na_mag;
+		std::vector<double> na_phase;
+		AxisLimitRanges network_magnitude_range = magnitude_db_range;
+		static double network_constraint_mag_lower = magnitude_db_range.constraint_lower;
+		static double network_constraint_mag_upper = magnitude_db_range.constraint_upper;
+		static int Previous_NAC_UnitsComboCurrentItem = osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem;
+		if (na != nullptr) {
+			na_freq = na->freqs();      // Hz, must be > 0 for log scale
+			switch (osc_control->NetworkAnalyserControls.UnitsComboCurrentItem)
+			{
+			case 0:
+				na_mag = na->mag_dB();
+				network_magnitude_range = magnitude_db_range;
+				break;
+			case 1:
+				na_mag = na->mag_linear();
+				network_magnitude_range = magnitude_VRMS_range;
+				break;
+			}
+			na_phase = na->phase_rad();  // radians
+		}
+		else {
+			na_freq.clear();
+			na_mag.clear();
+			na_phase.clear();
+		}
+		struct XTickBuf {
+			std::vector<double> ticks;
+		};
+		static XTickBuf g_na_xticks;
+		if (osc_control->NetworkAnalyserControls.Display)
+		{
+			// --- Magnitude Plot ------------------------------------------------------
+			if (ImPlot::BeginPlot("##NetworkAnalyser", plot_size_network_magnitude, network_base_plot_flags))
+			{
+				// Add fallback ticks only when no 10^k labels are visible
+				
+				ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"Hz");
+				switch (osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem)
+				{
+				case 0:
+					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dbV");
+					break;
+				case 1:
+					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
+					break;
+				}
+				if (osc_control->NetworkAnalyserControls.Autofit || na->running() || network_was_off || (Previous_NAC_UnitsComboCurrentItem != osc_control->NetworkAnalyserControls.UnitsComboCurrentItem))
+				{
+					if (!na_freq.empty() && !na_mag.empty()) {
+						double mag_max = *std::max_element(na_mag.begin(), na_mag.end());
+						double mag_min = *std::min_element(na_mag.begin(), na_mag.end());
+						double mag_range = mag_max - mag_min;
+						double mag_frac = 0.9;
+						double pad = 0.5 * mag_range * (1 / mag_frac - 1);
+						pad = pad == 0 ? 1 : pad; // if flat line, add padding of 1
+						ImPlot::SetupAxesLimits(na_freq[0], na_freq[na_freq.size()-1],
+							mag_min - pad, mag_max + pad, ImPlotCond_Always);
+						network_constraint_mag_lower = *std::min_element(na_mag.begin(), na_mag.end()) - 10;
+						network_constraint_mag_upper = *std::max_element(na_mag.begin(), na_mag.end()) + 10;
+					}
+					else
+					{
+						ImPlot::SetupAxesLimits(na_cfg->f_start, na_cfg->f_stop,
+							network_magnitude_range.init_lower, network_magnitude_range.init_upper, ImPlotCond_Always);
+						network_constraint_mag_lower = network_magnitude_range.constraint_lower;
+						network_constraint_mag_upper = network_magnitude_range.constraint_upper;
+					}
+				}
+				if (na->running())
+				{
+					ImPlot::SetupAxisLimits(ImAxis_X1, na_cfg->f_start, na_cfg->f_stop, ImPlotCond_Always);
+				}
+				// Axes: labels + units
+				ImPlot::SetupAxis(ImAxis_X1, "Frequency (Hz)", ImPlotAxisFlags_NoLabel);
+				ImPlot::SetupAxis(ImAxis_Y1, "Magnitude (dB)", ImPlotAxisFlags_NoLabel);
+
+				// Log scale on X (use Log10 for VNA-style decades)
+				ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
+				ImPlot::SetupAxesLimits(na_cfg->f_start, na_cfg->f_stop,
+					network_magnitude_range.init_lower, network_magnitude_range.init_upper,
+					ImPlotCond_Once);
+				
+				if(!na_freq.empty() && !na_mag.empty() && !na->running()) // data exists
+				{
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, na_freq[0],na_freq[na_freq.size()-1]);
+				}
+				else // no data
+				{
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, na_cfg->f_start, na_cfg->f_stop);
+				}
+				if(na_mag.size() == 0 || na_freq.size() == 0) // constraints if no data
+				{
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, network_magnitude_range.constraint_lower, network_magnitude_range.constraint_upper);
+				}
+				else // constraints if data
+				{
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, network_constraint_mag_lower, network_constraint_mag_upper);
+				}
+				// Adaptive ticks from live view (no locking)
+				ApplyAdaptiveLogXTicks_Internal(ImAxis_X1);
+				ImPlot::SetNextLineStyle(osc_control->NetworkAnalyserColour);
+				if (!na_freq.empty()) {
+					// Guard: log scale requires strictly positive x
+					// (skip if any non-positive values slipped in)
+					bool x_ok = std::all_of(na_freq.begin(), na_freq.end(), [](double f) { return f > 0; });
+					if (x_ok) {
+						ImPlot::PlotLine("S-Param |Mag| (dB)", na_freq.data(), na_mag.data(), (int)na_freq.size());
+					}
+				}
+				ImPlot::EndPlot();
+			}
+
+			// --- Phase Plot (optional) -----------------------------------------------
+			if (osc_control->NetworkAnalyserControls.PhaseOn)
+			{
+				ImGui::SameLine();
+				if (ImPlot::BeginPlot("##NetworkAnalyserPhase", plot_size_network_phase, spectrum_base_plot_flags))
+				{
+					
+					ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"Hz");
+
+					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"rad");
+
+					if(osc_control->NetworkAnalyserControls.Autofit || na->running() || network_was_off || (Previous_NAC_UnitsComboCurrentItem != osc_control->NetworkAnalyserControls.UnitsComboCurrentItem))
+					{
+						if (!na_freq.empty() && !na_phase.empty()) {
+							double phase_max = *std::max_element(na_phase.begin(), na_phase.end());
+							double phase_min = *std::min_element(na_phase.begin(), na_phase.end());
+							double phase_range = phase_max - phase_min;
+							double phase_frac = 0.9;
+							double pad = 0.5 * phase_range * (1 / phase_frac - 1);
+							pad = pad == 0 ? 1 : pad; // if flat line, add padding of 1
+							ImPlot::SetupAxesLimits(na_freq[0], na_freq[na_freq.size() - 1],
+								phase_min - pad, phase_max + pad, ImPlotCond_Always);
+						}
+						else
+						{
+							ImPlot::SetupAxesLimits(na_cfg->f_start, na_cfg->f_stop,
+								-M_PI, M_PI, ImPlotCond_Always);
+						}
+					}
+
+					if (na->running())
+					{
+						ImPlot::SetupAxisLimits(ImAxis_X1, na_cfg->f_start, na_cfg->f_stop, ImPlotCond_Always);
+					}
+
+					ImPlot::SetupAxis(ImAxis_X1, "Frequency (Hz)", ImPlotAxisFlags_AutoFit || ImPlotAxisFlags_NoLabel);
+					ImPlot::SetupAxis(ImAxis_Y1, "Phase (rad)", ImPlotAxisFlags_AutoFit || ImPlotAxisFlags_NoLabel);
+
+					ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
+					ImPlot::SetupAxesLimits(na_cfg->f_start, na_cfg->f_stop,
+						-M_PI, M_PI,
+						ImPlotCond_Once);
+					if (!na_freq.empty() && !na_mag.empty() && !na->running()) // data exists
+					{
+						ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, na_freq[0], na_freq[na_freq.size() - 1]);
+					}
+					else // no data
+					{
+						ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, na_cfg->f_start, na_cfg->f_stop);
+					}
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, -M_PI, M_PI);
+					// Adaptive ticks from live view (no locking)
+					ApplyAdaptiveLogXTicks_Internal(ImAxis_X1);
+					ImPlot::SetNextLineStyle(osc_control->NetworkAnalyserColour);
+					if (!na_freq.empty()) {
+						bool x_ok = std::all_of(na_freq.begin(), na_freq.end(), [](double f) { return f > 0; });
+						if (x_ok) {
+							ImPlot::PlotLine("angle(S) (rad)", na_freq.data(), na_phase.data(), (int)na_freq.size());
+						}
+					}
+					ImPlot::EndPlot();
+				}
+			}
+			network_was_off = false;
+			Previous_SAC_UnitsComboCurrentItem = osc_control->SpectrumAnalyserControls.UnitsComboCurrentItem;
+		}
+		else
+		{
+			network_was_off = true;
+		}
+
+
 		
 		// Help Button
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
@@ -1135,6 +1362,7 @@ protected:
 	AxisLimitRanges magnitude_VRMS_range = { 0, 1, 0, 20 };
 	bool spectrum_autofit = false;
 	bool spectrum_was_off = true;
+	bool network_was_off = true;
 	struct PlotTrace {
 		std::vector<double> x;
 		std::vector<double> y;
@@ -1197,4 +1425,92 @@ protected:
 
 		return out;
 	}
+	// Network Analyser Stuff
+	NetworkAnalyser* na = nullptr;
+	NetworkAnalyser::Config* na_cfg = nullptr;
+
+	// Put near your UI file top
+	static inline void FormatHzSI(double f, char* buf, int n) {
+		if (f >= 1e9) std::snprintf(buf, n, "%.3g GHz", f / 1e9);
+		else if (f >= 1e6) std::snprintf(buf, n, "%.3g MHz", f / 1e6);
+		else if (f >= 1e3) std::snprintf(buf, n, "%.3g kHz", f / 1e3);
+		else              std::snprintf(buf, n, "%.3g Hz", f);
+	}
+
+	// Build + apply adaptive ticks from *current* view without locking setup.
+	// Requires: called between BeginPlot/EndPlot, before any Plot* calls.
+	inline void ApplyAdaptiveLogXTicks_Internal(ImAxis axis_x) {
+		ImPlotContext* gp = GImPlot;
+		IM_ASSERT(gp && gp->CurrentPlot);
+		ImPlotPlot* plot = gp->CurrentPlot;
+
+		// read current visible range directly (no SetupLock)
+		ImPlotAxis& ax = plot->Axes[axis_x];
+		const double xmin = ax.Range.Min;
+		const double xmax = ax.Range.Max;
+		if (!(xmin > 0.0) || !(xmax > xmin)) return;
+
+		std::vector<double> ticks;
+		ticks.reserve(64);
+
+		// any 10^k in view?
+		const int k_lo = (int)std::ceil(std::log10(xmin));
+		const int k_hi = (int)std::floor(std::log10(xmax));
+		const bool has_major = (k_lo <= k_hi);
+
+		if (has_major) {
+			for (int k = k_lo; k <= k_hi; ++k) {
+				const double v = std::pow(10.0, (double)k);
+				if (v >= xmin && v <= xmax) ticks.push_back(v); // 10, 100, 1k, ...
+			}
+		}
+		else {
+			// no majors → show in-decade ticks; super tight → linear fallback
+			const double log_span = std::log10(xmax) - std::log10(xmin);
+			if (log_span < 0.15) {
+				// VERY tight: linear 5 ticks so there’s always labels
+				const int N = 5;
+				const double step = (xmax - xmin) / (N - 1);
+				for (int i = 0; i < N; ++i) ticks.push_back(xmin + i * step);
+			}
+			else if (log_span <= 1.05) {
+				// within ~one decade
+				const int    kd = (int)std::floor(std::log10(0.5 * (xmin + xmax)));
+				const double base = std::pow(10.0, (double)kd);
+				const bool   dense = (log_span <= 0.5);
+				if (dense) {
+					for (int m = 1; m <= 9; ++m) {
+						const double v = m * base;
+						if (v >= xmin && v <= xmax) ticks.push_back(v); // 1..9
+					}
+				}
+				else {
+					static const double M[] = { 1,2,5 };
+					for (double m : M) {
+						const double v = m * base;
+						if (v >= xmin && v <= xmax) ticks.push_back(v); // 1,2,5
+					}
+				}
+			}
+			else {
+				// multi-decade span but edges exclude majors → coarse 1,2,5 per decade
+				const int kmin = (int)std::floor(std::log10(xmin));
+				const int kmax = (int)std::ceil(std::log10(xmax));
+				static const double M[] = { 1,2,5 };
+				for (int k = kmin; k <= kmax; ++k) {
+					const double base = std::pow(10.0, (double)k);
+					for (double m : M) {
+						const double v = m * base;
+						if (v >= xmin && v <= xmax) ticks.push_back(v);
+					}
+				}
+			}
+		}
+
+		if (!ticks.empty())
+			ImPlot::SetupAxisTicks(axis_x, ticks.data(), (int)ticks.size(), /*labels*/ nullptr);
+	}
+
+
+	
 };

@@ -15,6 +15,7 @@
 #include <stdlib.h> 
 #include <chrono>
 #include <thread>
+#include "NetworkAnalyser.hpp"
 #ifdef NDEBUG
 #include <Windows.h>
 int windows_system(const char* cmd) {
@@ -124,6 +125,9 @@ class App : public AppBase<App>
 		SG1Widget.setPinoutImg((intptr_t)sg_tmp_texture, w, h);
 		SG2Widget.setPinoutImg((intptr_t)sg_tmp_texture, w, h);
 		OSCWidget.setPinoutImg((intptr_t)osc_tmp_texture, w, h);
+
+		OSCWidget.SetNetworkAnalyser(&na,&na_cfg);
+		PlotWidgetObj.SetNetworkAnalyser(&na, &na_cfg);
 
 		IM_ASSERT(psu_ret);
 		IM_ASSERT(sg_ret);
@@ -275,10 +279,10 @@ class App : public AppBase<App>
 
 			// Render Oscilloscope Widget
 			OSCWidget.Render();
-			
 
-			ImGui::EndChild(); // End right column
-			ImGui::End();
+			//ImGui::EndChild(); // End right column
+			//ImGui::End(); 
+
 
 			// Updates state of labrador to match widgets
 			if (connected)
@@ -299,9 +303,19 @@ class App : public AppBase<App>
 					SG1Widget.controlLab();
 					SG2Widget.controlLab();
 				}
+				if (OSCWidget.NetworkAnalyserControls.Acquire) // acquire state set once on button press
+				{
+					na.StartSweep(na_cfg);
+				}
+				if (na.running())
+				{
+					na.Tick();
+				}
 				
 			}
-
+			
+			ImGui::EndChild(); // End right column
+			ImGui::End(); //remove later, just putting it here for debugging
 			if (showDemoWindows)
 			{
 				// Show ImGui and ImPlot demo windows
@@ -536,6 +550,8 @@ class App : public AppBase<App>
 	const int labRefreshRate = 60; // send controls to labrador every this many frames
 	bool connected = false; // state of labrador connection
 	bool flash_firmware_next_frame = false;
+	NetworkAnalyser na;
+	NetworkAnalyser::Config na_cfg;
 	
 	// Define default configurations for widgets here
 	PSUControl PSUWidget = PSUControl("Power Supply Unit (PSU)", ImVec2(0,0), constants::PSU_ACCENT);

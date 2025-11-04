@@ -146,6 +146,7 @@
     <ClInclude Include="src\MiniHLInput.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\NetworkAnalyser.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
