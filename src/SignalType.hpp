@@ -17,8 +17,9 @@ public:
 	          constants::volt_prefs, constants::volt_formats)
 	    , frequency("##" + label + "freq", "Frequency", 100.f, 1.0f, 1e6f, "Hz",
 	          constants::freq_prefs, constants::freq_formats)
-	    , offset("##" + label + "os", "Vbase", 0.0f, -9.0f, 9.0f, "V",
+	    , offset("##" + label + "os", "Vbase", 0.0f, 0.0f, 9.0f, "V",
 	          constants::volt_prefs, constants::volt_formats)
+		, phase("##" + label + "phase", "Phase", 0.0f, 0.0f, 360.0f, "deg", constants::phase_prefs, constants::phase_formats)
 	{
 	}
 
@@ -35,7 +36,7 @@ public:
 	bool renderControl()
 	{
 		const float width = ImGui::GetContentRegionAvail().x;
-		const float height = ImGui::GetFrameHeightWithSpacing() * (label=="Square" ? 4.0f : 3.0f);
+		const float height = ImGui::GetFrameHeightWithSpacing() * (label=="Square" ? 5.0f : 4.0f);
 
 		// Controls
 		ImGui::BeginChild((label + "_control").c_str(), ImVec2(width * 0.6, height));
@@ -122,6 +123,7 @@ public:
 			changed |= amplitude.renderInTable(inpWidth);
 			changed |= frequency.renderInTable(inpWidth);
 			changed |= offset.renderInTable(inpWidth);
+			changed |= phase.renderInTable(inpWidth);
 
 			if (label == "Square")
 			{
@@ -178,6 +180,7 @@ protected:
 	SIValue amplitude;
 	SIValue frequency;
 	SIValue offset;
+	SIValue phase;
 	int dutycycle = 50;
 };
 
@@ -198,7 +201,7 @@ public:
 	/// </summary>
 	void controlLab(int channel) override
 	{
-		librador_send_sin_wave(channel, frequency.getValue(), amplitude.getValue(), offset.getValue());
+		librador_send_sin_wave(channel, frequency.getValue(), amplitude.getValue(), offset.getValue(), phase.getValue()/180*M_PI);
 	}
 	
 };
@@ -220,12 +223,12 @@ public:
 	void controlLab(int channel) override
 	{
 		librador_imgui_send_square_wave(
-		    channel, frequency.getValue(), amplitude.getValue(), offset.getValue(), dutycycle / 100.0);
+		    channel, frequency.getValue(), amplitude.getValue(), offset.getValue(), dutycycle / 100.0, phase.getValue());
 	}
 
 
 	// Custom square function to adjust Duty Cycle. Could be integrated with future version of librador
-	int librador_imgui_send_square_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double duty_cycle = 0.5)
+	int librador_imgui_send_square_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double duty_cycle = 0.5, double phase=0.0)
 	{
 		if ((amplitude_v + offset_v) > 9.6)
 		{
@@ -259,7 +262,7 @@ public:
 		{
 			x_temp = (double)i * (2.0 * M_PI / (double)num_samples);
 			// Generate points at interval 2*pi/num_samples.
-			sampleBuffer[i] = sample_generator(x_temp, duty_cycle);
+			sampleBuffer[i] = sample_generator(x_temp-phase/180*M_PI, duty_cycle);
 		}
 
 		librador_update_signal_gen_settings(channel, sampleBuffer, num_samples,
@@ -271,7 +274,7 @@ public:
 
 	unsigned char sample_generator(double x, double duty_cycle = 0.5)
 	{
-		return (x < 2*M_PI*duty_cycle) ? 255 : 0;
+		return (fmod(x+2*M_PI, 2*M_PI) < 2*M_PI*duty_cycle) ? 255 : 0;
 	}
 };
 
@@ -292,7 +295,7 @@ public:
 	void controlLab(int channel) override
 	{
 		librador_send_sawtooth_wave(
-		    channel, frequency.getValue(), amplitude.getValue(), offset.getValue());
+		    channel, frequency.getValue(), amplitude.getValue(), offset.getValue(), phase.getValue()/180*M_PI);
 	}
 };
 
@@ -311,6 +314,6 @@ public:
 	/// </summary>
 	void controlLab(int channel) override
 	{
-		librador_send_triangle_wave(channel, frequency.getValue(), amplitude.getValue(), offset.getValue());
+		librador_send_triangle_wave(channel, frequency.getValue(), amplitude.getValue(), offset.getValue(), phase.getValue()/180*M_PI);
 	}
 };

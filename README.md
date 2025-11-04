@@ -29,11 +29,11 @@ sudo xattr -cr /Applications/LabradorImgui.app
 - Clone the respository using Visual Studio 2022 to build and run the latest variant of the application
 
 ### macOS
-- Download cmake (if you have homebrew (https://brew.sh/))
+- Download cmake (if you have homebrew (https://brew.sh/) the command is:)
 ```
 brew install cmake
 ```
-- Run cmake commands in package_mac.sh to build the app bundle (terminal commands must be executed from the cloned repository directory)
+- Run cmake commands through package_mac.sh to build the app bundle by running the below commands from the repository top-level directory:
 ```
 chmod +x package_mac.sh
 ./package_mac.sh
@@ -45,6 +45,15 @@ chmod +x package_mac.sh
 - or you can open LabradorImgui.app in the mac_appbundle folder
 
 # User Documentation
+
+### General
+
+#### About the board
+
+- This application controls the EspoTek Labrador Board.
+- Not all pins are utilised by this application. See Pinout below for a diagram showing the location of all pins used by this application.
+- All Ground (GND) Pins are connected i.e. all GND connections offer a common reference point.
+- [TODO: INSERT EXPLANATION FOR AC COUPLING SITTING at ~1.6 V]
 
 ### Troubleshooting
 
@@ -69,7 +78,8 @@ chmod +x package_mac.sh
 - **Waveform selection**: Chooses the type of waveform output.
 - **Frequency slider**: Sets the frequency of the signal.
 - **Vpeak-peak slider**: Modifies the peak to peak amplitude of the waveform.
-- **Offset slider**: Shifts the waveform's base voltage level
+- **Offset slider**: Shifts the waveform's base voltage level.
+- **Phase slider**: Shifts the waveform in the time domain. For example, 90deg phase will move the waveform 'forward' by a quarter of the waveform's period.
 - **Duty Cycle slider**: Defines the percentage that the waveform is "on" (square wave only)
 
 #### Specifications
@@ -81,7 +91,7 @@ chmod +x package_mac.sh
 
 #### Additional Information
 - **DC Coupled Pins**: Replicates the properties set in the application.
-- **AC Coupled Pins**: No DC component meaning the offset set in the application may not have the desired effect. Use the DC Oscilloscope Pins to observe this effect in action! 
+- **AC Coupled Pins**: No DC component meaning the offset set in the application may not have the desired effect.
 
 ### Plot Settings
 
@@ -116,7 +126,10 @@ chmod +x package_mac.sh
 - AC Coupled pins filter out the very low frequency components (DC components) to display only AC signals
 
 #### Math Mode
-Syntax
+
+- Combine channels mathematically. eg. osc1 + osc2
+
+- **Syntax**
 - **Literals and Names**
   - Signals: osc1   osc2
   - Numbers: 3    -4.2    1e-3

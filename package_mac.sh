@@ -62,9 +62,9 @@ EOL
 fi
 
 # 6. Optionally create a .dmg
-DMG_NAME="${APP_NAME}.dmg"
-echo "Creating DMG..."
-hdiutil create -volname "$APP_NAME" -srcfolder "$APP_BUNDLE_DIR" -ov -format UDZO "$DMG_NAME"
+# DMG_NAME="${APP_NAME}.dmg"
+# echo "Creating DMG..."
+# hdiutil create -volname "$APP_NAME" -srcfolder "$APP_BUNDLE_DIR" -ov -format UDZO "$DMG_NAME"
 
-echo "Packaging complete!"
-echo "You can distribute ${DMG_NAME} or the ${APP_BUNDLE_DIR} bundle."
+# echo "Packaging complete!"
+# echo "You can distribute ${DMG_NAME} or the ${APP_BUNDLE_DIR} bundle."

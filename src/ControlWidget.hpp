@@ -169,7 +169,7 @@ public:
 			ImGui::SetNextItemOpen(true);
 		else if (collapseAll)
 			ImGui::SetNextItemOpen(false);
-		if (pinout_texture != (intptr_t)0 && ImGui ::TreeNode(("Pinout##" + label).c_str()))
+		if (pinout_texture != (intptr_t)0 && ImGui ::TreeNode(("Pinout Diagram##" + label).c_str()))
 		{
 			ImGui::Image((void*) pinout_texture, ImVec2(pinout_width, pinout_height));
 			ImGui::TreePop();
@@ -202,6 +202,9 @@ public:
 
 	void renderHelp()
 	{
+		const int min_width = 400;
+		const int min_height = 400;
+		ImGui::SetNextWindowSizeConstraints(ImVec2(min_width, min_height), ImVec2(FLT_MAX, FLT_MAX));
 		// Render Help Text from markdown format 
 		// Edit README.md to change help popup content
 		if (!ImGui::Begin((help_popup_id).c_str(), &show_help))

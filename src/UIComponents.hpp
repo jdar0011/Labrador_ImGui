@@ -209,12 +209,17 @@ public:
 		changed |= ImGui::DragFloat(
 			id.c_str(), 
 			&display_value, 
-			std::abs(display_value) < 0.01 ? 0.01 : 0.01f * std::abs(display_value), // variable speed slider 
+			label == "Phase" ? 1.0f :
+			std::abs(display_value) < 0.01 ? 0.01 : 0.01f * std::abs(display_value), // variable speed slider
 			display_min_val, 
 			display_max_val, 
 			getFormat(), 
 			ImGuiSliderFlags_AlwaysClamp // clamp even with manual input
 		);
+		if (ImGui::IsItemHovered() && GImGui->HoveredIdTimer > 0.6f)
+		{
+			ImGui::SetTooltip("Double click to type value.\nClick+drag to adjust value.");
+		}
 
 		ImGui::SameLine();
 		if (options.size() > 1 && DropDown(("##" + id + "dd").c_str(), options, &prefix_idx))

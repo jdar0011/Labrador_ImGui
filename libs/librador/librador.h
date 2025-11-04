@@ -16,10 +16,10 @@ int LIBRADORSHARED_EXPORT librador_reset_usb();
 int LIBRADORSHARED_EXPORT librador_avr_debug();
 //a1
 int LIBRADORSHARED_EXPORT librador_update_signal_gen_settings(int channel, unsigned char* sampleBuffer, int numSamples, double usecs_between_samples, double amplitude_v, double offset_v);
-int LIBRADORSHARED_EXPORT librador_send_sin_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v);
-int LIBRADORSHARED_EXPORT librador_send_square_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v);
-int LIBRADORSHARED_EXPORT librador_send_sawtooth_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v);
-int LIBRADORSHARED_EXPORT librador_send_triangle_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v);
+int LIBRADORSHARED_EXPORT librador_send_sin_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double phase_rad=0.0);
+int LIBRADORSHARED_EXPORT librador_send_square_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double phase_rad=0.0);
+int LIBRADORSHARED_EXPORT librador_send_sawtooth_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double phase_rad=0.0);
+int LIBRADORSHARED_EXPORT librador_send_triangle_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double phase_rad=0.0);
 //a2
 ////As above
 //a3

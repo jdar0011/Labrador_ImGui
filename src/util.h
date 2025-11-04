@@ -60,13 +60,21 @@ static std::vector<std::string> volt_prefs = { "", "m" };
 // Voltage Units
 static std::vector<std::string> volt_formats = { "%.2f", "%.0f" };
 
+// Phase Units
+static std::vector<std::string> phase_prefs = { "" };
+// Phase Units
+static std::vector<std::string> phase_formats = { "%.0f" };
+
+
 //  textures
 extern int pinout_width;
 extern int pinout_height;
+extern int glob_pinout_width;
+extern int glob_pinout_height;
 extern intptr_t psu_pinout_texture;
 extern intptr_t sg_pinout_texture;
 extern intptr_t osc_pinout_texture;
-
+extern intptr_t glob_pinout_texture;
 // Trigger Type
 enum TriggerType
 {

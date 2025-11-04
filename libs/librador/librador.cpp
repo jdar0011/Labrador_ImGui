@@ -199,6 +199,12 @@ int round_to_log2(double in){
     return round(pow(2, floor(log2(in))));
 }
 
+double rad_map(double x)
+{
+    // Maps angle from -2*PI to +inf -> 0 to 2*PI
+    return fmod(x+2*M_PI, 2*M_PI);
+}
+
 unsigned char generator_sin(double x)
 {
     //Offset of 1 and divided by 2 shifts range from -1:1 to 0:1.  We've got to return an unsigned char, after all!
@@ -207,16 +213,17 @@ unsigned char generator_sin(double x)
 
 unsigned char generator_square(double x)
 {
-    return (x > M_PI) ? 255 : 0;
+    return (rad_map(x) > M_PI) ? 255 : 0;
 }
 
 unsigned char generator_sawtooth(double x)
 {
-    return round(255.0 * (x/(2.0*M_PI)));
+    return round(255.0 * (rad_map(x)/(2.0*M_PI)));
 }
 
 unsigned char generator_triangle(double x)
 {
+    x = rad_map(x);
     if(x <= M_PI){
         return round(255.0 * (x/M_PI));
     } else {
@@ -262,28 +269,66 @@ int send_convenience_waveform(int channel, double frequency_Hz, double amplitude
     return 0;
 }
 
-int librador_send_sin_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v){
-    CHECK_API_INITIALISED
-    CHECK_USB_INITIALISED
-    return send_convenience_waveform(channel, frequency_Hz, amplitude_v, offset_v, generator_sin);
+int send_convenience_waveform_with_phase(int channel, double frequency_Hz, double amplitude_v, double offset_v, unsigned char (*sample_generator)(double), double phase_rad)
+{
+    if((amplitude_v + offset_v) > 9.6){
+        return -1;
+        //Voltage range too high
+    }
+    if((amplitude_v < 0) | (offset_v < 0)){
+        return -2;
+        //Negative voltage
+    }
+
+    if((channel != 1) && (channel != 2)){
+        return -3;
+        //Invalid channel
+    }
+    int num_samples = fmin(1000000.0/frequency_Hz, 512);
+    //The maximum number of samples that Labrador's buffer holds is 512.
+    //The minimum time between samples is 1us.  Using T=1/f, this gives a maximum sample number of 10^6/f.
+    num_samples = 2*(num_samples / 2);
+    //Square waves need an even number.  Others don't care.
+    double usecs_between_samples = 1000000.0/((double)num_samples * frequency_Hz);
+    //Again, from T=1/f.
+    unsigned char* sampleBuffer = (unsigned char*)malloc(num_samples);
+
+    int i;
+    double x_temp;
+    for(i=0; i< num_samples; i++){
+        x_temp = (double)i * (2.0*M_PI/(double)num_samples);
+        //Generate points at interval 2*pi/num_samples.
+        sampleBuffer[i] = sample_generator(x_temp - phase_rad);
+    }
+
+    librador_update_signal_gen_settings(channel, sampleBuffer, num_samples, usecs_between_samples, amplitude_v, offset_v);
+
+    free(sampleBuffer);
+    return 0;
 }
 
-int librador_send_square_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v){
+int librador_send_sin_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double phase_rad /*default 0.0*/){
     CHECK_API_INITIALISED
     CHECK_USB_INITIALISED
-    return send_convenience_waveform(channel, frequency_Hz, amplitude_v, offset_v, generator_square);
+    return send_convenience_waveform_with_phase(channel, frequency_Hz, amplitude_v, offset_v, generator_sin, phase_rad);
 }
 
-int librador_send_triangle_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v){
+int librador_send_square_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double phase_rad){
     CHECK_API_INITIALISED
     CHECK_USB_INITIALISED
-    return send_convenience_waveform(channel, frequency_Hz, amplitude_v, offset_v, generator_triangle);
+    return send_convenience_waveform_with_phase(channel, frequency_Hz, amplitude_v, offset_v, generator_square, phase_rad);
 }
 
-int librador_send_sawtooth_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v){
+int librador_send_triangle_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double phase_rad){
     CHECK_API_INITIALISED
     CHECK_USB_INITIALISED
-    return send_convenience_waveform(channel, frequency_Hz, amplitude_v, offset_v, generator_sawtooth);
+    return send_convenience_waveform_with_phase(channel, frequency_Hz, amplitude_v, offset_v, generator_triangle, phase_rad);
+}
+
+int librador_send_sawtooth_wave(int channel, double frequency_Hz, double amplitude_v, double offset_v, double phase_rad){
+    CHECK_API_INITIALISED
+    CHECK_USB_INITIALISED
+    return send_convenience_waveform_with_phase(channel, frequency_Hz, amplitude_v, offset_v, generator_sawtooth, phase_rad);
 }
 
 /*

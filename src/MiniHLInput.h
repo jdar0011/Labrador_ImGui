@@ -155,7 +155,7 @@ static bool MiniHLInput(const char* label,
 
     bool changed = false;
 
-    // We’ll render InputText with transparent text, then paint our own colored text on top
+    // Weï¿½ll render InputText with transparent text, then paint our own colored text on top
     ImGui::PushID(label);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 4));
     if (bg_color) {
@@ -168,7 +168,7 @@ static bool MiniHLInput(const char* label,
     tmp = buffer; // InputText edits 'tmp'; we copy back if changed
     ImGuiInputTextFlags flags = ImGuiInputTextFlags_CallbackAlways | ImGuiInputTextFlags_AutoSelectAll;
     // Render the input
-    changed = ImGui::InputText("##mini_hl", &tmp, flags);
+    changed = ImGui::InputTextWithHint("##mini_hl", "eg. osc1+osc2", &tmp, flags);
 
     ImGuiID id = ImGui::GetItemID();
     ImRect  r = ImRect(ImGui::GetItemRectMin(),ImGui::GetItemRectMax());
