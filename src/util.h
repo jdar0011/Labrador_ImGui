@@ -159,4 +159,5 @@ std::vector<double> EvalUserExpression(std::string expr, std::vector<double> osc
 bool SliderFloatPercent(const char* label, float* v01,
 	const char* fmt = "%.0f%%",
 	ImGuiSliderFlags flags = 0);
+std::vector<float> linspace(float x_min, float x_max, int resolution);
 #endif

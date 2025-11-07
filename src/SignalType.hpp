@@ -3,6 +3,8 @@
 #include "util.h"
 #include "UIComponents.hpp"
 #include <string>
+#include <cmath>
+#include <vector>
 
 /// <summary>
 /// Abstract class representing signal from signal generator
@@ -64,40 +66,65 @@ public:
 	/// </summary>
 	void renderPreview()
 	{
-		ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoDecorations,
-		    ImPlotAxisFlags_NoDecorations);
+		// ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_NoDecorations);
+		ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_None, ImPlotAxisFlags_None);
+
 		int period = constants::PREVIEW_RES;
 		int padding = period / 4;
 		float plt_amp = 1.0f;
-		ImPlot::SetupAxesLimits(-5 - padding, period + padding + 5, 1.2, -1.2, ImGuiCond_Always);
+		
+		// NEW
+		int resolution = constants::PREVIEW_RES;
+		float T = 1/frequency.getValue();
+		float x_min = -T;
+		float x_max = 2*T;
 
+		float decade_min = -std::pow(10.0f, std::ceil(std::log10(-x_min)));    
+		float decade_max = std::pow(10.0f, std::ceil(std::log10(x_max)));
+		
+		auto xs = linspace(decade_min, decade_max, resolution);
+		auto waveform = this->preview_generator(xs);
+
+		float vbase = offset.getValue();
+		float A = amplitude.getValue();
+		float y_min = floor(vbase-0.5);
+		float y_max = ceil(vbase + A + 0.5);
+		
+
+		// ImPlot::SetupAxesLimits(-5 - padding, period + padding + 5, 1.2, -1.2, ImGuiCond_Always);
+		ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1, 1, 1, 1));
+		ImPlot::SetupAxesLimits(decade_min, decade_max, y_min, y_max, ImPlotCond_Always);
+		ImPlot::PlotLine(("##" + label + "_plot_preview").c_str(), xs.data(), waveform.data(), xs.size());
+		ImPlot::PopStyleColor();
 		// Plot half a waveform before and after preview 
-		ImPlot::PlotLine(("##" + label + "_plot_preview_pre").c_str(),&preview[period-padding], padding+1, 1.0, (double) - padding);
-		ImPlot::PlotLine(("##" + label + "_plot_preview").c_str(), constants::x_preview,
-		    preview, period + 1);
-		ImPlot::PlotLine(("##" + label + "_plot_preview_post").c_str(),
-			preview, padding, 1.0, period);
+		// ImPlot::PlotLine(("##" + label + "_plot_preview_pre").c_str(),&preview[period-padding], padding+1, 1.0, (double) - padding);
+		// ImPlot::PlotLine(("##" + label + "_plot_preview").c_str(), constants::x_preview,
+		//     preview, period + 1);
+		// ImPlot::PlotLine(("##" + label + "_plot_preview_post").c_str(),
+		// 	preview, padding, 1.0, period);
+
+
 
 		// Render annotations
-		float amp_label_x[2] = { 0, 0 };
-		float amp_label_y[2] = { plt_amp, -plt_amp };
+		// float amp_label_x[2] = { 0, 0 };
+		// float amp_label_y[2] = { plt_amp, -plt_amp };
 
-		ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1, 1, 1, 1));
-		ImPlot::PlotLine(("##" + label + "_amp").c_str(), amp_label_x, amp_label_y, 2);
-		ImPlot::PlotScatter(("##" + label + "_amp_pnt").c_str(), amp_label_x, amp_label_y, 2);
-		// Annotate amplitude
-		ImPlot::Annotation(period*0.5, 0, ImVec4(0, 0, 0, 0), ImVec2(0, -5), true,
-			"Vpp = %.2f V", amplitude.getValue());
+		// ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1, 1, 1, 1));
+		// ImPlot::PlotLine(("##" + label + "_amp").c_str(), amp_label_x, amp_label_y, 2);
+		// ImPlot::PlotScatter(("##" + label + "_amp_pnt").c_str(), amp_label_x, amp_label_y, 2);
+		// // Annotate amplitude
+		// ImPlot::Annotation(period*0.5, 0, ImVec4(0, 0, 0, 0), ImVec2(0, -5), true,
+		// 	"Vpp = %.2f V", amplitude.getValue());
 
-		float per_label_x[2] = { 0, (float) period };
-		float per_label_y[2] = { 0.0f, 0.0f };
+		// float per_label_x[2] = { 0, (float) period };
+		// float per_label_y[2] = { 0.0f, 0.0f };
 
-		ImPlot::PlotLine(("##" + label + "_per").c_str(), per_label_x, per_label_y, 2);
-		ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
-		// Annotate frequency
-		ImPlot::Annotation(period*0.5, 0, ImVec4(0, 0, 0, 0), ImVec2(0, 5), true,
-			"T = %.2E s", 1 / frequency.getValue());
-		ImPlot::PopStyleColor();
+		// ImPlot::PlotLine(("##" + label + "_per").c_str(), per_label_x, per_label_y, 2);
+		// ImPlot::PlotScatter(("##" + label + "_per_pnt").c_str(), per_label_x, per_label_y, 2);
+		// // Annotate frequency
+		// ImPlot::Annotation(period*0.5, 0, ImVec4(0, 0, 0, 0), ImVec2(0, 5), true,
+		// 	"T = %.2E s", 1 / frequency.getValue());
+		// ImPlot::PopStyleColor();
 
 		ImPlot::EndPlot();
 	}
@@ -166,14 +193,19 @@ public:
 		librador_send_sin_wave(channel, 100, 0.0, 0.0);
 	}
 
+	virtual std::vector<float> preview_generator(std::vector<float> t) = 0;
+
 	float getSignalMax()
 	{
 		return amplitude.getValue() + offset.getValue();
 	}
 
 private:
+	float preview_x_min = -0.01;
+	float preview_x_max = 0.05;
+	float preview_y_min = -0.01;
+	float preview_y_max = 1.0;
 	
-
 protected:
 	std::string label;
 	float* preview;
@@ -202,6 +234,14 @@ public:
 	void controlLab(int channel) override
 	{
 		librador_send_sin_wave(channel, frequency.getValue(), amplitude.getValue(), offset.getValue(), phase.getValue()/180*M_PI);
+	}
+
+	std::vector<float> preview_generator(std::vector<float> t) override {
+		std::vector<float> y(t.size());
+
+		std::transform(t.begin(), t.end(), y.begin(), [this](float val) { return 
+			amplitude.getValue()/2*(1.0+std::sin(2*M_PI*frequency.getValue()*val-phase.getValue()/180*M_PI))+offset.getValue(); });
+		return y;
 	}
 	
 };
@@ -276,6 +316,10 @@ public:
 	{
 		return (fmod(x+2*M_PI, 2*M_PI) < 2*M_PI*duty_cycle) ? 255 : 0;
 	}
+
+	std::vector<float> preview_generator(std::vector<float> t) override {
+		return std::vector<float>(t.size());
+	}
 };
 
 /// <summary>
@@ -297,6 +341,10 @@ public:
 		librador_send_sawtooth_wave(
 		    channel, frequency.getValue(), amplitude.getValue(), offset.getValue(), phase.getValue()/180*M_PI);
 	}
+
+	std::vector<float> preview_generator(std::vector<float> t) override {
+		return std::vector<float>(t.size());
+	}
 };
 
 /// <summary>Triangle Signal Generator Widget
@@ -315,5 +363,9 @@ public:
 	void controlLab(int channel) override
 	{
 		librador_send_triangle_wave(channel, frequency.getValue(), amplitude.getValue(), offset.getValue(), phase.getValue()/180*M_PI);
+	}
+
+	std::vector<float> preview_generator(std::vector<float> t) override {
+		return std::vector<float>(t.size());
 	}
 };

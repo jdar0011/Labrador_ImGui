@@ -50,6 +50,9 @@
         "cwctype": "cpp",
         "execution": "cpp",
         "ratio": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "charconv": "cpp",
+        "forward_list": "cpp",
+        "complex": "cpp"
     }
 }

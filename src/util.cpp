@@ -313,4 +313,15 @@ bool SliderFloatPercent(const char* label, float* v01,
 	return changed;
 }
 
+std::vector<float> linspace(float x_min, float x_max, int resolution) {
+    std::vector<float> result(resolution);
+    float step = (x_max - x_min) / (resolution - 1);
+    
+    for (int i = 0; i < resolution; i++) {
+        result[i] = x_min + i * step;
+    }
+    
+    return result;
+}
+
 
