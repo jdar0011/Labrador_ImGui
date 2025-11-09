@@ -43,7 +43,7 @@ constexpr ImU32 KeywordColour = IM_COL32(86,156,214,255);
 
 // Signal Generator Preview Waves
 constexpr const char* wavetypes[4] = { "Sine", "Square", "Sawtooth", "Triangle" };
-constexpr int PREVIEW_RES = 128;
+constexpr int PREVIEW_RES = 256;
 extern float x_preview[PREVIEW_RES+1];
 extern float sine_preview[PREVIEW_RES+1];
 extern float square_preview[PREVIEW_RES+1];

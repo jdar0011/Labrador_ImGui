@@ -5,6 +5,8 @@
 #include <string>
 #include <cmath>
 #include <vector>
+#include <iomanip>
+#include <sstream>
 
 /// <summary>
 /// Abstract class representing signal from signal generator
@@ -42,7 +44,7 @@ public:
 
 		// Controls
 		ImGui::BeginChild((label + "_control").c_str(), ImVec2(width * 0.6, height));
-
+		
 		bool changed = renderProperties();
 
 		ImGui::EndChild();
@@ -56,8 +58,9 @@ public:
 		{
 			renderPreview();
 		}
-
-		ImPlot::GetStyle() = backup;
+		// ImPlot::GetStyle() = backup;
+		ImPlotContext& gp = *GImPlot;
+		gp.Style = backup;
 		return changed;
 	}
 
@@ -76,26 +79,50 @@ public:
 		// NEW
 		int resolution = constants::PREVIEW_RES;
 		float T = 1/frequency.getValue();
+
+		float preview_x_range = preview_x_max - preview_x_min;
+		if (preview_x_range < 2*T) {
+			preview_x_min = -T;
+			preview_x_max = 2.1*T;
+		}
+		else if (preview_x_max > 3.2*T) {
+			preview_x_min = -T*0.5;
+			preview_x_max = 1.6*T;
+		}
+
+		ImPlot::SetupAxisFormat(ImAxis_X1, T < 0.1? "%.2e" : "%.2f");
+		
 		float x_min = -T;
 		float x_max = 2*T;
 
 		float decade_min = -std::pow(10.0f, std::ceil(std::log10(-x_min)));    
 		float decade_max = std::pow(10.0f, std::ceil(std::log10(x_max)));
 		
-		auto xs = linspace(decade_min, decade_max, resolution);
+		auto xs = linspace(preview_x_min, preview_x_max, resolution);
 		auto waveform = this->preview_generator(xs);
 
 		float vbase = offset.getValue();
 		float A = amplitude.getValue();
 		float y_min = floor(vbase-0.5);
 		float y_max = ceil(vbase + A + 0.5);
+		std::string x_label = formatAxisLabel(T);
+		const double x_ticks[] = {0, T};
+		const char* x_labels[] = {"0", x_label.c_str()};
 		
+		std::string y_label_base = formatAxisLabel(vbase);
+		std::string y_label_peak = formatAxisLabel(vbase+A);
+		const double y_ticks[] = {vbase, vbase+A};
+		const char* y_labels[] = {y_label_base.c_str(), y_label_peak.c_str()};
+		float key_points_x[3] = {T, 0, 0};
+		float key_points_y[3] = {0, vbase, vbase+A};
 
 		// ImPlot::SetupAxesLimits(-5 - padding, period + padding + 5, 1.2, -1.2, ImGuiCond_Always);
-		ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1, 1, 1, 1));
-		ImPlot::SetupAxesLimits(decade_min, decade_max, y_min, y_max, ImPlotCond_Always);
+		
+		ImPlot::SetupAxisTicks(ImAxis_X1, x_ticks, 2, x_labels);
+		ImPlot::SetupAxisTicks(ImAxis_Y1, y_ticks, 2, y_labels);
+		ImPlot::SetupAxesLimits(preview_x_min, preview_x_max, y_min, y_max, ImPlotCond_Always);
 		ImPlot::PlotLine(("##" + label + "_plot_preview").c_str(), xs.data(), waveform.data(), xs.size());
-		ImPlot::PopStyleColor();
+		// ImPlot::PlotScatter(("##" + label + "_period_pnt").c_str(), key_points_x, key_points_y, 3);
 		// Plot half a waveform before and after preview 
 		// ImPlot::PlotLine(("##" + label + "_plot_preview_pre").c_str(),&preview[period-padding], padding+1, 1.0, (double) - padding);
 		// ImPlot::PlotLine(("##" + label + "_plot_preview").c_str(), constants::x_preview,
@@ -205,6 +232,17 @@ private:
 	float preview_x_max = 0.05;
 	float preview_y_min = -0.01;
 	float preview_y_max = 1.0;
+	std::string formatAxisLabel(float value) {
+		std::ostringstream ss;
+		
+		// Use scientific notation if absolute value is less than 0.01 and not zero
+		if (std::abs(value) < 0.0099 && value != 0.0f) {
+			ss << std::scientific << std::setprecision(2) << value;
+		} else {
+			ss << std::fixed << std::setprecision(2) << value;
+		}
+		return ss.str();
+	}
 	
 protected:
 	std::string label;
@@ -318,7 +356,15 @@ public:
 	}
 
 	std::vector<float> preview_generator(std::vector<float> t) override {
-		return std::vector<float>(t.size());
+		std::vector<float> y(t.size());
+
+		std::transform(t.begin(), t.end(), y.begin(), [this](float val) { 
+			// Square wave function with duty cycle
+			float t = std::fmod(frequency.getValue() * val - phase.getValue() / 360.0f, 1.0f);
+			if (t < 0) t += 1.0f; // Handle negative values
+			return amplitude.getValue() * (t < dutycycle/100.0) + offset.getValue();
+		});
+		return y;
 	}
 };
 
@@ -343,7 +389,15 @@ public:
 	}
 
 	std::vector<float> preview_generator(std::vector<float> t) override {
-		return std::vector<float>(t.size());
+		std::vector<float> y(t.size());
+
+		std::transform(t.begin(), t.end(), y.begin(), [this](float val) { 
+			// Sawtooth wave function
+			float t = std::fmod(frequency.getValue() * val - phase.getValue() / 360.0f, 1.0f);
+			if (t < 0) t += 1.0f; // Handle negative values
+			return amplitude.getValue() * t + offset.getValue();
+		});
+		return y;
 	}
 };
 
@@ -366,6 +420,14 @@ public:
 	}
 
 	std::vector<float> preview_generator(std::vector<float> t) override {
-		return std::vector<float>(t.size());
+		std::vector<float> y(t.size());
+
+		std::transform(t.begin(), t.end(), y.begin(), [this](float val) { 
+			// Triangle wave function
+			float t = std::fmod(frequency.getValue() * val - phase.getValue() / 360.0f, 1.0f);
+			if (t < 0) t += 1.0f; // Handle negative values
+			return 2 * amplitude.getValue() * (0.5-std::abs(t - 0.5f)) + offset.getValue();
+		});
+		return y;
 	}
 };

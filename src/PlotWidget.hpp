@@ -297,9 +297,9 @@ public:
 			}
 			// Plot oscilloscope 1 signal
 			std::vector<double> time_osc1 = OSC1Data.GetTime();
-			ImPlot::SetNextLineStyle(osc_control->OSC1Colour.Value);
 			if (osc_control->DisplayCheckOSC1)
 			{
+				ImPlot::SetNextLineStyle(osc_control->OSC1Colour.Value); // bugfixed: only set colour if line is being draw.
 				ImPlot::PlotLine("##Osc 1", time_osc1.data(), analog_data_osc1.data(),
 					analog_data_osc1.size());
 			}
@@ -307,9 +307,9 @@ public:
 			OSC1Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
 			// Plot Oscilloscope 2 Signal
 			std::vector<double> time_osc2 = OSC2Data.GetTime();
-			ImPlot::SetNextLineStyle(osc_control->OSC2Colour.Value);
 			if (osc_control->DisplayCheckOSC2)
 			{
+				ImPlot::SetNextLineStyle(osc_control->OSC2Colour.Value);
 				ImPlot::PlotLine("##Osc 2", time_osc2.data(), analog_data_osc2.data(),
 					analog_data_osc2.size());
 			}

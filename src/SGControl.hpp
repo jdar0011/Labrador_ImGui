@@ -58,8 +58,10 @@ public:
 		ImGui::SeparatorText(
 		    ((signals[signal_idx]->getLabel()) + " Wave Properties").c_str());
 		
+		// Make preview colour a little brighter
+		ImPlot::SetNextLineStyle(ImVec4(accentColour[0]*1.4, accentColour[1]*1.4, accentColour[2]*1.4, 1.0f));
 		switched = (signals[signal_idx]->renderControl()) || switched;
-		
+
 		// Clipping may occur if PSU Voltage is not high enough
 		if (signals[signal_idx]->getSignalMax() > *pPSUVoltage - 1.18)
 		{

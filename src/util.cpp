@@ -146,8 +146,8 @@ void PreviewStyle()
 	ImPlotStyle& style = ImPlot::GetStyle();
 
 	ImVec4* colors = style.Colors;
-	colors[ImPlotCol_Line] = ImVec4(1.0f, 1.0f, 1.0f, 0.5f); // WHITE
-	colors[ImPlotCol_Fill] = ImVec4(1.0f, 1.0f, 1.0f, 0.0f); // TRANSPARENT
+	// colors[ImPlotCol_Line] = ImVec4(1.0f, 1.0f, 1.0f, 0.5f); // WHITE
+	// colors[ImPlotCol_Fill] = ImVec4(1.0f, 1.0f, 1.0f, 0.0f); // TRANSPARENT
 	//colors[ImPlotCol_MarkerOutline] = IMPLOT_AUTO_COL;
 	//colors[ImPlotCol_MarkerFill] = IMPLOT_AUTO_COL;
 	//colors[ImPlotCol_ErrorBar] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
@@ -160,13 +160,13 @@ void PreviewStyle()
 	//colors[ImPlotCol_TitleText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
 	//colors[ImPlotCol_InlayText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
 	//colors[ImPlotCol_AxisText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
-	//colors[ImPlotCol_AxisGrid] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+	colors[ImPlotCol_AxisGrid] = ImVec4(1.0f, 1.0f, 1.0f, 0.9f);
 	//colors[ImPlotCol_AxisBgHovered] = ImVec4(0.92f, 0.92f, 0.95f, 1.00f);
 	//colors[ImPlotCol_AxisBgActive] = ImVec4(0.92f, 0.92f, 0.95f, 0.75f);
 	//colors[ImPlotCol_Selection] = ImVec4(1.00f, 0.65f, 0.00f, 1.00f);
 	//colors[ImPlotCol_Crosshairs] = ImVec4(0.23f, 0.10f, 0.64f, 0.50f);
 
-	//style.LineWeight = 1.5;
+	style.LineWeight = 2.5;
 	// style.Marker = ImPlotMarker_Plus;
 	style.MarkerSize = 2;
 	//style.MarkerWeight = 1;
