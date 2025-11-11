@@ -3,7 +3,7 @@
 - This application is a control interface for the [Espotek Labrador Portable Lab Bench](https://espotek.com/labrador/)
 - The primary goals of the design it to be student friendly and accessible, meaning that advanced features are not present
 - The original application for the board can be found [here](https://github.com/EspoTek/Labrador)
-- Developed as an ECSE Final Year Project at Monash University
+- The application was developed as an ECSE Final Year Project at Monash University
 <p align="center">
   <img src="https://github.com/user-attachments/assets/72207e83-18da-40ee-9f17-82211c3f7350" alt="labrador-controller-home-page" width="750"/>
 </p>
@@ -16,7 +16,7 @@
 
 ### macOS
 - Beta Release (October 2025) found [here](https://github.com/jdar0011/Labrador_ImGui/releases/tag/Beta)
-- Download and open .dmg file, code is current **unsigned** so macOS makes it difficult to open
+- Download and open .dmg file, code is currently **unsigned** so macOS makes it difficult to open
 - After dragging the LabradorImgui.app into the Application folder, run this line of code to allow the app to open (works on macOS Sequoia V15.6)
 ```
 sudo xattr -cr /Applications/LabradorImgui.app
@@ -33,16 +33,16 @@ sudo xattr -cr /Applications/LabradorImgui.app
 ```
 brew install cmake
 ```
-- Run cmake commands through package_mac.sh to build the app bundle by running the below commands from the repository top-level directory:
+- Run ./package_mac.sh file: (this just calls all the cmake commands and constructs the App bundle.)
 ```
 chmod +x package_mac.sh
 ./package_mac.sh
 ```
-- Executable can be run via
+- LabradorImgui executable can be run via
 ```
 ./mac_appbundle/LabradorImgui.app/Contents/MacOS/LabradorImgui
 ```
-- or you can open LabradorImgui.app in the mac_appbundle folder
+- or you can open LabradorImgui.app from the mac_appbundle folder
 
 # User Documentation
 
@@ -52,8 +52,7 @@ chmod +x package_mac.sh
 
 - This application controls the EspoTek Labrador Board.
 - Not all pins are utilised by this application. See Pinout below for a diagram showing the location of all pins used by this application.
-- All Ground (GND) Pins are connected i.e. all GND connections offer a common reference point.
-- [TODO: INSERT EXPLANATION FOR AC COUPLING SITTING at ~1.6 V]
+- The pins that are labelled 'AC' (short for AC Coupled) will contain, perhaps unexpectedly for the user, a DC component of ~1.65 V. The board manufacturer highly recommends that DC Pins are used unless the user is certain of what they are doing.
 
 ### Troubleshooting
 
@@ -66,7 +65,8 @@ chmod +x package_mac.sh
 ### Power Supply Unit (PSU)
 
 #### Controls
-- **Voltage control**: Adjusts the output voltage level
+- **Voltage control**: Adjusts the Power Supply output voltage level
+
 #### Specifications
 - **Voltage Range**: 4.5 V - 12.0 V
 - **Maximum Power Supply**: 0.75 W
@@ -78,7 +78,7 @@ chmod +x package_mac.sh
 - **Waveform selection**: Chooses the type of waveform output.
 - **Frequency slider**: Sets the frequency of the signal.
 - **Vpeak-peak slider**: Modifies the peak to peak amplitude of the waveform.
-- **Offset slider**: Shifts the waveform's base voltage level.
+- **Vbase slider**: Shifts the waveform's base voltage level.
 - **Phase slider**: Shifts the waveform in the time domain. For example, 90deg phase will move the waveform 'forward' by a quarter of the waveform's period.
 - **Duty Cycle slider**: Defines the percentage that the waveform is "on" (square wave only)
 
@@ -91,7 +91,9 @@ chmod +x package_mac.sh
 
 #### Additional Information
 - **DC Coupled Pins**: Replicates the properties set in the application.
-- **AC Coupled Pins**: No DC component meaning the offset set in the application may not have the desired effect.
+- **AC Coupled Pins**: Constant ~1.65 V DC component meaning the Vbase set in the application may not have the desired effect.
+- Note: The traditional definition of an AC Coupled Signal is a signal that has the DC component filtered out. This is NOT the case with the Labrador hardware - the signal generator will produce a 1.65 V DC component on 'AC' Pins. Use with caution as this may be unexpected for some users.
+- Note: Users that are experienced with electronics may expect the Signal Generator Controls to offer parameters more commonly found on traditional signal generator equipment, such as a DC offset controlling the DC component and an amplitude controlling the maximum extent of a wave measured from this DC component. The controls provided are influenced by the capabilities of the Labrador board. The board cannot drive negative voltages, therefore the DC component can never be zero for non-zero amplitude waveforms - this would greatly complicate the behaviour of the controls if they were to be mirror traditional signal generators.
 
 ### Plot Settings
 
