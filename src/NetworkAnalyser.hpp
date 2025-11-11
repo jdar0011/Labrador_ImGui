@@ -19,7 +19,7 @@ public:
         // Sweep
         double f_start = 1;
         double f_stop = 1e3;
-        int    points = 101;
+        int    points = 100;
         bool   log_spacing = true;
 
         // Lock-in / timing

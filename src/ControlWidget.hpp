@@ -12,6 +12,8 @@ class ControlWidget
 {
 public:
 	bool show_help = false;
+	bool init_closed = false;
+	bool first_render = true;
 
 	/// <summary>
 	/// Constructor
@@ -59,8 +61,17 @@ public:
 		    border_radius, ImDrawFlags_RoundCornersTop);
 
 		ImGui::AlignTextToFramePadding();
-		bool treeopen = ImGui::TreeNodeEx(label.c_str(),
-		    ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_DefaultOpen);
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_AllowItemOverlap;
+		if (!init_closed)
+		{
+			flags |= ImGuiTreeNodeFlags_DefaultOpen;
+		}
+		if (first_render && init_closed)
+		{
+			ImGui::SetNextItemOpen(false, ImGuiCond_Always);
+		}
+		first_render = false;
+		bool treeopen = ImGui::TreeNodeEx(label.c_str(), flags);
 		ImGui::SameLine(ImGui::GetContentRegionAvail().x - 20);
 		
 		// Help button
@@ -223,6 +234,10 @@ public:
 
 		ImGui::End();
 		
+	}
+	void SetInitClosed(bool closed = true)
+	{
+		init_closed = closed;
 	}
 
 	//bool BeginHelpPopup(const char* str_id, ImGuiWindowFlags flags)

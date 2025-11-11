@@ -13,6 +13,10 @@
 #define _USE_MATH_DEFINES
 #include "math.h"
 #include "exprtk.hpp"
+#include <chrono>
+#include <string>
+#include <unordered_map>
+#include <iostream>
 
 #define MATH_CUSTOM 15
 

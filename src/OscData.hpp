@@ -10,6 +10,9 @@
 #include "TVD.hpp"
 #define _USE_MATH_DEFINES
 #include "math.h"
+#include <cmath>
+#include <limits>
+#include <numeric>
 class OSCControl;
 
 class OscData
@@ -300,7 +303,7 @@ public:
 		{
 			int num_periods = 10;
 			double sample_rate_hz = CalculateSampleRate();
-			double periodic_time_window = GetPeriod() * num_periods;
+			double periodic_time_window = GetTimeBetweenTriggers() * num_periods;
 			std::vector<double>* periodic_data_ptr = librador_get_analog_data(
 				channel, periodic_time_window, sample_rate_hz, delay_s, filter_mode);
 			if (periodic_data_ptr)
@@ -314,32 +317,11 @@ public:
 			}
 		}
 	}
-	double GetVpp() // specific function for finding Vpp that attempts to remove outliers
-	{
-		if (periodic_data.size() == 0)
-		{
-			return 0;
-		}
-		// apply total variation denoising (TVD) to denoise the signal
-		double lambda = 0.1;
-		std::vector<double> denoised_signal = tv_denoise(periodic_data, lambda);
-		if (denoised_signal.size() > 0)
-		{
-			double max = *std::max_element(denoised_signal.begin(), denoised_signal.end());
-			double min = *std::min_element(denoised_signal.begin(), denoised_signal.end());
-			return max - min;
-		}
-		else
-		{
-			return 0;
-		}
-
-	}
 	/// <summary>
 	///  Get time between triggers
 	/// </summary>
 	/// <returns></returns>
-	double GetPeriod()
+	double GetTimeBetweenTriggers()
 	{
 		// i'm going to use raw_data vector here for maximum accuracy, this is the one we used for fft - it has high sample rate and a large time window
 		double period = 0;
@@ -388,6 +370,27 @@ public:
 			}
 		}
 		return period;
+	}
+	double GetVoltageRange() // specific function for finding Vpp that attempts to remove outliers
+	{
+		if (periodic_data.size() == 0)
+		{
+			return 0;
+		}
+		// apply total variation denoising (TVD) to denoise the signal
+		double lambda = 0.1;
+		std::vector<double> denoised_signal = tv_denoise(periodic_data, lambda);
+		if (denoised_signal.size() > 0)
+		{
+			double max = *std::max_element(denoised_signal.begin(), denoised_signal.end());
+			double min = *std::min_element(denoised_signal.begin(), denoised_signal.end());
+			return max - min;
+		}
+		else
+		{
+			return 0;
+		}
+
 	}
 	double GetAverage()
 	{
@@ -597,7 +600,7 @@ public:
 		return mini_buffer;
 	}
 
-	int GetChannel()
+	int GetChannel() const
 	{
 		return channel;
 	}
@@ -605,6 +608,257 @@ public:
 	{
 		return raw_data;
 	}
+	// --------------------- Basic stats ---------------------
+
+	double GetVmax() const {
+		if (data.empty()) return NaN();
+		return *std::max_element(data.begin(), data.end());
+	}
+
+	double GetVmin() const {
+		if (data.empty()) return NaN();
+		return *std::min_element(data.begin(), data.end());
+	}
+
+	double GetVpp() const {
+		if (data.empty()) return NaN();
+		double vmax = GetVmax();
+		double vmin = GetVmin();
+		if (!valid(vmax) || !valid(vmin)) return NaN();
+		return vmax - vmin;
+	}
+
+	double GetVavg() const {
+		if (data.empty()) return NaN();
+		double sum = std::accumulate(data.begin(), data.end(), 0.0);
+		return sum / (double)data.size();
+	}
+
+	double GetVrms() const {
+		if (data.empty()) return NaN();
+		// RMS of the signal as-is (includes DC)
+		long double acc = 0.0L;
+		for (double v : data) acc += (long double)v * (long double)v;
+		double mean_sq = (double)(acc / (long double)data.size());
+		return std::sqrt(mean_sq);
+	}
+
+	// --------------------- Period via mid-level crossings ---------------------
+
+	// Assumes members: std::vector<double> time, data;
+	// Helpers you likely already have:
+	//   inline bool valid(double x); inline double NaN(); inline double wrap_deg(double a);
+
+	double GetPeriod() const {
+		// Use the overlap to be safe.
+		const size_t N = std::min(time.size(), data.size());
+		if (N < 8) return NaN();
+
+		// Require strictly increasing timestamps.
+		for (size_t i = 1; i < N; ++i)
+			if (!(time[i] > time[i - 1])) return NaN();
+
+
+		// ---- 1) DENOISE ----
+		// Make a contiguous copy for TVD (in case 'data' has extra capacity or is a view).
+		std::vector<double> periodic_data;
+		periodic_data.assign(data.begin(), data.begin() + N);
+
+
+		// You can tune lambda externally; 0.05–0.3 is a common sweet spot.
+		double lambda = 0.1;
+		std::vector<double> x = tv_denoise(periodic_data, lambda);   // denoised signal (length N expected)
+		if (x.size() != N) return NaN();
+
+		// ---- Tiny visualization block ----
+		if (ImPlot::BeginPlot("Denoised vs Original", ImVec2(-1, 0))) {
+			ImPlot::SetupAxes("Sample Index", "Amplitude", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+			ImPlot::PlotLine("Original", periodic_data.data(), (int)N);
+			ImPlot::PlotLine("Denoised", x.data(), (int)N);
+			ImPlot::EndPlot();
+		}
+
+		// ---- 2) MIDPOINT & HYSTERESIS FROM DENOISED + RESIDUAL NOISE ----
+		// Compute vmin, vmax from the denoised signal (more stable than raw).
+		auto [min_it, max_it] = std::minmax_element(x.begin(), x.end());
+		const double vmin = *min_it;
+		const double vmax = *max_it;
+		if (!std::isfinite(vmin) || !std::isfinite(vmax)) return NaN();
+
+		const double vpp = vmax - vmin;
+		if (!(vpp > 0.0)) return NaN();
+
+		const double vmid = 0.5 * (vmax + vmin);
+
+		// Estimate residual noise σ from raw - denoised via MAD (robust).
+		// σ ≈ 1.4826 * MAD, MAD = median(|r - median(r)|)
+		auto median_of = [](std::vector<double>& v)->double {
+			if (v.empty()) return std::numeric_limits<double>::quiet_NaN();
+			size_t n = v.size() / 2;
+			std::nth_element(v.begin(), v.begin() + n, v.end());
+			double m = v[n];
+			if ((v.size() & 1) == 0) {
+				// even: also get the lower neighbor
+				std::nth_element(v.begin(), v.begin() + n - 1, v.end());
+				m = 0.5 * (m + v[n - 1]);
+			}
+			return m;
+		};
+
+		std::vector<double> r; r.reserve(N);
+		for (size_t i = 0; i < N; ++i) r.push_back(periodic_data[i] - x[i]);
+
+		double r_med = [&] {
+			std::vector<double> tmp = r;
+			return median_of(tmp);
+		}();
+
+		double mad = [&] {
+			std::vector<double> tmp; tmp.reserve(N);
+			for (double ri : r) tmp.push_back(std::abs(ri - r_med));
+			return median_of(tmp);
+		}();
+
+		const double sigma = (std::isfinite(mad) ? 1.4826 * mad : 0.0);
+
+		// Hysteresis: derive from noise and amplitude. Floor to avoid chatter on tiny signals.
+		// Larger of (3σ) and (5% Vpp), with a very small absolute floor.
+		const double h = std::max(std::max(3.0 * sigma, 0.05 * vpp), 1e-6);
+		const double lo = vmid - h;
+
+		// ---- 3) RISING vmid CROSSINGS ON DENOISED (RE-ARM BELOW lo) ----
+		std::vector<double> t_cross; t_cross.reserve(N / 3);
+		bool armed = (x[0] <= lo); // start armed if we begin below lo
+
+		for (size_t i = 1; i < N; ++i) {
+			const double x0 = x[i - 1];
+			const double x1 = x[i];
+
+			if (armed) {
+				// rising crossing exactly at vmid (guarantees interpolation is inside segment)
+				if (x0 <= vmid && x1 > vmid) {
+					const double dx = x1 - x0;     // > 0 in normal rising case
+					if (dx != 0.0) {
+						// Optional shallow-edge guard: require slope big enough in volts/sample
+						// (helps with ultra-low amplitude + noise). Tune 1e-4 as needed.
+						if (dx > 1e-4 * vpp) {
+							const double alpha = (vmid - x0) / dx; // in [0,1] by construction
+							const double t = time[i - 1] + alpha * (time[i] - time[i - 1]);
+							if (std::isfinite(t)) t_cross.push_back(t);
+						}
+					}
+					armed = false; // disarm until we drop below lo again
+				}
+			}
+			else {
+				if (x1 < lo) armed = true; // re-arm when safely below lo
+			}
+		}
+
+		// ---- 4) PERIOD FROM CROSSINGS (CENTERED OLS; FALLBACK FOR 2) ----
+		const size_t M = t_cross.size();
+		if (M < 2) return NaN();
+
+		if (M == 2) {
+			const double T = t_cross[1] - t_cross[0];
+			return (std::isfinite(T) && T > 0.0) ? T : NaN();
+		}
+
+		// Centered least-squares slope of t_k ≈ t0 + k*T, k = 0..M-1
+		const long double Mld = (long double)M;
+		const long double mean_k = (Mld - 1.0L) * 0.5L;
+
+		long double mean_t = 0.0L;
+		for (size_t k = 0; k < M; ++k) mean_t += (long double)t_cross[k];
+		mean_t /= Mld;
+
+		long double cov_kt = 0.0L, var_k = 0.0L;
+		for (size_t k = 0; k < M; ++k) {
+			const long double kc = (long double)k - mean_k;
+			const long double tc = (long double)t_cross[k] - mean_t;
+			cov_kt += kc * tc;
+			var_k += kc * kc;
+		}
+
+		if (var_k == 0.0L) return NaN();
+		const double T = (double)(cov_kt / var_k);
+		return (std::isfinite(T) && T > 0.0) ? T : NaN();
+	}
+
+
+
+	// --------------------- Absolute phase at f ≈ 1/T (ref at window center) ---------------------
+	double GetPhaseDeg(double* freq_used_out = nullptr) const {
+		const size_t N = std::min(time.size(), data.size());
+		if (N < 8) {
+			if (freq_used_out) *freq_used_out = NaN();
+			return NaN();
+		}
+		for (size_t i = 1; i < N; ++i)
+			if (!(time[i] > time[i - 1])) { if (freq_used_out) *freq_used_out = NaN(); return NaN(); }
+
+		// Base frequency from period
+		const double T = GetPeriod();
+		if (!(valid(T) && T > 0.0)) { if (freq_used_out) *freq_used_out = NaN(); return NaN(); }
+		const double f0 = 1.0 / T;
+
+		// DC removal
+		const double mean = GetVavg();
+		if (!valid(mean)) { if (freq_used_out) *freq_used_out = NaN(); return NaN(); }
+
+		// Reference time at window center to stabilize phase when the window slides
+		const double t0 = 0.5 * (time.front() + time.back());
+
+		// Hann window (weight)
+		auto hann_w = [N](size_t n)->double {
+			if (N < 2) return 1.0;
+			return 0.5 * (1.0 - std::cos(2.0 * M_PI * (double)n / (double)(N - 1)));
+		};
+
+		// Small frequency refinement around f0 using a 3-point parabolic peak on |S(f)|:
+		// Evaluate S at f0-df, f0, f0+df
+		const double span = std::max(1e-12, time.back() - time.front());
+		const double df = 1.0 / span;  // ~frequency bin of the aperture
+		auto proj = [&](double f)->std::pair<double, double> {
+			long double Re = 0.0L, Im = 0.0L;
+			for (size_t n = 0; n < N; ++n) {
+				const double x = data[n] - mean;
+				const double w = hann_w(n);
+				const double ang = 2.0 * M_PI * f * (time[n] - t0);  // center-referenced
+				const double c = std::cos(ang), s = std::sin(ang);
+				Re += (long double)(w * x) * (long double)c;
+				Im -= (long double)(w * x) * (long double)s; // e^{-iωt}
+			}
+			return { (double)Re, (double)Im };
+		};
+		auto mag2 = [](double Re, double Im) { return Re * Re + Im * Im; };
+
+		const auto [Re0m, Im0m] = proj(f0 - df);
+		const auto [Re0, Im0] = proj(f0);
+		const auto [Re0p, Im0p] = proj(f0 + df);
+
+		const double A0m = mag2(Re0m, Im0m);
+		const double A0 = mag2(Re0, Im0);
+		const double A0p = mag2(Re0p, Im0p);
+
+		// Parabolic interpolation of peak shift (Δ in bins of df)
+		double delta = 0.0;
+		const double denom = (A0m - 2.0 * A0 + A0p);
+		if (std::fabs(denom) > 0.0) {
+			delta = 0.5 * (A0m - A0p) / denom;  // in [-1, +1] ideally
+			delta = std::max(-1.0, std::min(1.0, delta));
+		}
+		const double f1 = std::max(0.0, f0 + delta * df);
+
+		// Final projection at refined f1 (still referenced to t0)
+		const auto [Re, Im] = proj(f1);
+		if (!(std::isfinite(Re) && std::isfinite(Im))) { if (freq_used_out) *freq_used_out = NaN(); return NaN(); }
+
+		if (freq_used_out) *freq_used_out = f1;
+		const double phi = std::atan2(Im, Re) * (180.0 / M_PI);
+		return wrap_deg(phi);
+	}
+
 
 private:
 	// time domain (plot) stuff
@@ -635,7 +889,7 @@ private:
 	std::vector<double> spectrum_data_db = {};
 	std::vector<double> spectrum_freq = {};
 	// frequency stuff
-	std::vector<double> raw_data = {}; // to be copied to data_ft_in and used in frequency transform
+	std::vector<double> raw_data = {};
 	std::vector<double> raw_time = {}; // time associated with raw_data
 	int ft_size = 16384*4; // 2^15
 	double* data_ft_in; // raw_data copied to double array
@@ -726,6 +980,20 @@ private:
 			    = (mini_buffer_next_index + buffer_update_size) % mini_buffer.size();
 		}
 			
+	}
+
+	// === Helpers ===
+	static inline bool valid(double x) {
+		return std::isfinite(x);
+	}
+	static inline double NaN() {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+	static inline double wrap_deg(double a) {
+		if (!std::isfinite(a)) return a;
+		a = std::fmod(a + 180.0, 360.0);
+		if (a < 0) a += 360.0;
+		return a - 180.0;
 	}
 };
 

@@ -136,19 +136,21 @@ private:
     NetworkAnalyser* na_ = nullptr;
     NetworkAnalyser::Config* cfg_ = nullptr;
 
-    // Log-range slider (same implementation you had; kept inline)
-    // Log-range slider (same implementation you had; kept inline)
+    // Log-range slider with default-SliderFloat height, rectangular grabs,
+    // and value labels shown ABOVE the slider (like your original).
     inline bool RangeSliderDoubleLog(const char* label,
         double* v_lower, double* v_upper,
         double v_min, double v_max,
         double min_span_hz = 0.0, bool auto_swap = true, bool snap_125_on_rel = false,
-        float widget_width = 0.0f, float bar_thickness_px = 4.0f, float knob_radius_px = 7.0f,
+        float widget_width = 0.0f, float bar_thickness_px = 4.0f, float /*knob_radius_px*/ = 7.0f,
         float top_label_margin_px = 4.0f, float left_pad_px = 0.0f, float right_pad_px = 16.0f)
     {
         IM_ASSERT(v_lower && v_upper);
         if (!(v_min > 0.0 && v_min < v_max)) return false;
 
+        // ---- helpers (local; no redefinitions) ----
         auto clampd = [](double x, double a, double b) { return x < a ? a : (x > b ? b : x); };
+
         auto snap125 = [](double x)->double {
             if (x <= 0) return x;
             double e = std::floor(std::log10(x));
@@ -156,6 +158,7 @@ private:
             double t = (m < 1.5) ? 1.0 : (m < 3.5 ? 2.0 : (m < 7.5 ? 5.0 : 10.0));
             return t * std::pow(10.0, e);
         };
+
         auto format_hz_si = [](char* buf, size_t n, double hz) {
             const char* unit = "Hz"; double v = hz;
             if (hz >= 1e9) { v = hz / 1e9; unit = "GHz"; }
@@ -163,27 +166,36 @@ private:
             else if (hz >= 1e3) { v = hz / 1e3; unit = "kHz"; }
             std::snprintf(buf, n, "%.4g %s", v, unit);
         };
+
         struct LogMap {
             double lmin, lmax, inv_span;
-            LogMap(double vmin, double vmax) { lmin = std::log10(vmin); lmax = std::log10(vmax); inv_span = 1.0 / (lmax - lmin); }
+            LogMap(double vmin, double vmax) {
+                lmin = std::log10(vmin); lmax = std::log10(vmax);
+                inv_span = 1.0 / (lmax - lmin);
+            }
             double v_to_t(double v) const { return (std::log10(v) - lmin) * inv_span; }
             double t_to_v(double t) const { return std::pow(10.0, lmin + (lmax - lmin) * t); }
         };
 
+        // ---- inputs (clamped and constrained) ----
         double lo = clampd(*v_lower, v_min, v_max);
         double hi = clampd(*v_upper, v_min, v_max);
+
         auto apply_constraints = [&](double& a, double& b) {
-            a = clampd(a, v_min, v_max); b = clampd(b, v_min, v_max);
+            a = clampd(a, v_min, v_max);
+            b = clampd(b, v_min, v_max);
             if (auto_swap) {
                 if (a > b) std::swap(a, b);
-                if (min_span_hz > 0 && b - a < min_span_hz) b = clampd(a + min_span_hz, v_min, v_max);
+                if (min_span_hz > 0 && b - a < min_span_hz)
+                    b = clampd(a + min_span_hz, v_min, v_max);
             }
             else {
                 if (min_span_hz > 0) {
                     if (a > b - min_span_hz) a = b - min_span_hz;
                     if (b < a + min_span_hz) b = a + min_span_hz;
                 }
-                a = clampd(a, v_min, v_max); b = clampd(b, v_min, v_max);
+                a = clampd(a, v_min, v_max);
+                b = clampd(b, v_min, v_max);
             }
         };
         apply_constraints(lo, hi);
@@ -199,104 +211,167 @@ private:
         ImGui::TextUnformatted(label);
         ImGui::SameLine(0.0f, style.ItemInnerSpacing.x);
 
-        // First label format pass (reserve height)
+        // --- first label pass (to reserve top text height) ---
         char lbl_lo[32], lbl_hi[32];
         format_hz_si(lbl_lo, sizeof(lbl_lo), lo);
         format_hz_si(lbl_hi, sizeof(lbl_hi), hi);
-        ImVec2 sz_lo = ImGui::CalcTextSize(lbl_lo), sz_hi = ImGui::CalcTextSize(lbl_hi);
+        ImVec2 sz_lo = ImGui::CalcTextSize(lbl_lo);
+        ImVec2 sz_hi = ImGui::CalcTextSize(lbl_hi);
         const float labels_h = (sz_lo.y > sz_hi.y ? sz_lo.y : sz_hi.y);
 
+        // Width planning
         float avail = ImGui::GetContentRegionAvail().x;
         float inner_w = (widget_width > 0.0f ? widget_width : avail);
         inner_w = ImMax(1.0f, inner_w - (left_pad_px + right_pad_px));
 
-        const float grab_w = knob_radius_px * 2.0f;
-        const float base_h = ImMax(knob_radius_px * 2.0f + 4.0f, bar_thickness_px + 8.0f);
-        const float widget_h = labels_h + top_label_margin_px + base_h;
+        // Height: match default ImGui slider height
+        const float frame_h = ImGui::GetFrameHeight();        // <- matches SliderFloat height
+        const float widget_h = labels_h + top_label_margin_px + frame_h;
 
+        // Bounding box
         ImVec2 pos = ImGui::GetCursorScreenPos(); pos.x += left_pad_px;
         ImVec2 size(inner_w, widget_h);
         ImRect bb(pos, ImVec2(pos.x + size.x, pos.y + size.y));
         ImGui::ItemSize(size, style.FramePadding.y);
         if (!ImGui::ItemAdd(bb, id)) { *v_lower = lo; *v_upper = hi; ImGui::EndGroup(); return false; }
 
-        const float bar_y = bb.Max.y - (base_h * 0.5f);
-        const float bar_x0 = bb.Min.x + grab_w * 0.5f;
-        const float bar_x1 = bb.Max.x - grab_w * 0.5f;
+        // Geometry for frame (slider body)
+        const float rounding = style.FrameRounding;
+        const float border_size = style.FrameBorderSize;
+        ImRect frame_rect(
+            ImVec2(bb.Min.x, bb.Max.y - frame_h), // bottom area is the slider body
+            ImVec2(bb.Max.x, bb.Max.y)
+        );
+
+        // Usable bar inside the frame: leave margins so grabs stay within frame
+        const float grab_w = ImMax(style.GrabMinSize, 6.0f);
+        const float bar_x0 = frame_rect.Min.x + grab_w * 0.5f;
+        const float bar_x1 = frame_rect.Max.x - grab_w * 0.5f;
         const float bar_w = ImMax(1.0f, bar_x1 - bar_x0);
 
+        // Log mapping
         LogMap lm(v_min, v_max);
         auto v_to_x = [&](double v)->float { return (float)(bar_x0 + lm.v_to_t(v) * bar_w); };
         auto x_to_v = [&](float x)->double { return lm.t_to_v(clampd((x - bar_x0) / bar_w, 0.0, 1.0)); };
 
         float x_lo = v_to_x(lo), x_hi = v_to_x(hi);
 
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        const ImU32 col_bar_bg = ImGui::GetColorU32(ImGuiCol_FrameBg);
-        const ImU32 col_bar_sel = ImGui::GetColorU32(ImGuiCol_SliderGrabActive);
-        const ImU32 col_grab = ImGui::GetColorU32(ImGuiCol_SliderGrab);
-        const ImU32 col_grab_a = ImGui::GetColorU32(ImGuiCol_SliderGrabActive);
-        const ImU32 col_text = ImGui::GetColorU32(ImGuiCol_Text);
-
-        // Track
-        dl->AddRectFilled(ImVec2(bar_x0, bar_y - bar_thickness_px * 0.5f),
-            ImVec2(bar_x1, bar_y + bar_thickness_px * 0.5f),
-            col_bar_bg, bar_thickness_px * 0.5f);
-
-        // Selected region
-        float sel_x0 = (x_lo < x_hi ? x_lo : x_hi);
-        float sel_x1 = (x_lo < x_hi ? x_hi : x_lo);
-        dl->AddRectFilled(ImVec2(sel_x0, bar_y - bar_thickness_px * 0.5f),
-            ImVec2(sel_x1, bar_y + bar_thickness_px * 0.5f),
-            col_bar_sel, bar_thickness_px * 0.5f);
-
+        // Interactives FIRST (so we know active/hover to choose colors)
         ImGui::PushID(id);
-        ImRect lo_rect(ImVec2(x_lo - grab_w * 0.5f, bb.Min.y), ImVec2(x_lo + grab_w * 0.5f, bb.Max.y));
+
+        ImRect lo_rect(ImVec2(x_lo - grab_w * 0.5f, frame_rect.Min.y),
+            ImVec2(x_lo + grab_w * 0.5f, frame_rect.Max.y));
         ImGui::SetCursorScreenPos(lo_rect.Min);
         ImGui::InvisibleButton("lo", lo_rect.GetSize());
-        bool lo_active = ImGui::IsItemActive(), lo_hover = ImGui::IsItemHovered();
+        bool lo_active = ImGui::IsItemActive();
+        bool lo_hover = ImGui::IsItemHovered();
 
-        ImRect hi_rect(ImVec2(x_hi - grab_w * 0.5f, bb.Min.y), ImVec2(x_hi + grab_w * 0.5f, bb.Max.y));
+        ImRect hi_rect(ImVec2(x_hi - grab_w * 0.5f, frame_rect.Min.y),
+            ImVec2(x_hi + grab_w * 0.5f, frame_rect.Max.y));
         ImGui::SetCursorScreenPos(hi_rect.Min);
         ImGui::InvisibleButton("hi", hi_rect.GetSize());
-        bool hi_active = ImGui::IsItemActive(), hi_hover = ImGui::IsItemHovered();
+        bool hi_active = ImGui::IsItemActive();
+        bool hi_hover = ImGui::IsItemHovered();
 
-        // Click on track to pick nearest handle
-        if (!lo_active && !hi_active && ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(bb.Min, bb.Max)) {
+        // Click anywhere on the frame to pick nearest handle
+        if (!lo_active && !hi_active && ImGui::IsMouseClicked(0) &&
+            ImGui::IsMouseHoveringRect(frame_rect.Min, frame_rect.Max))
+        {
             float mx = ImGui::GetIO().MousePos.x;
             if (fabsf(mx - x_lo) <= fabsf(mx - x_hi)) { ImGui::SetActiveID(ImGui::GetID("lo"), window); lo_active = true; }
             else { ImGui::SetActiveID(ImGui::GetID("hi"), window); hi_active = true; }
         }
 
+        // Choose frame color like SliderFloat
+        ImU32 col_frame = ImGui::GetColorU32(ImGuiCol_FrameBg);
+        if (ImGui::IsMouseHoveringRect(frame_rect.Min, frame_rect.Max))
+            col_frame = ImGui::GetColorU32(ImGuiCol_FrameBgHovered);
+        if (lo_active || hi_active)
+            col_frame = ImGui::GetColorU32(ImGuiCol_FrameBgActive);
+
+        // Draw frame
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddRectFilled(frame_rect.Min, frame_rect.Max, col_frame, rounding);
+        if (border_size > 0.0f) {
+            const ImU32 col_border = ImGui::GetColorU32(ImGuiCol_Border);
+            dl->AddRect(frame_rect.Min, frame_rect.Max, col_border, rounding, 0, border_size);
+        }
+
+        // Within the frame: draw the thin track and the selected range
+        const float track_cy = 0.5f * (frame_rect.Min.y + frame_rect.Max.y);
+        const float half_th = 0.5f * ImClamp(bar_thickness_px, 1.0f, frame_h); // keep reasonable
+        const ImU32 col_bar_bg = ImGui::GetColorU32(ImGuiCol_FrameBg);
+        const ImU32 col_bar_sel = ImGui::GetColorU32(ImGuiCol_SliderGrabActive);
+
+        // track (full range)
+        dl->AddRectFilled(
+            ImVec2(bar_x0, track_cy - half_th),
+            ImVec2(bar_x1, track_cy + half_th),
+            col_bar_bg, half_th
+        );
+
+        // Update while dragging
         bool changed_now = false;
         if (lo_active) { lo = clampd(x_to_v(ImGui::GetIO().MousePos.x), v_min, v_max); apply_constraints(lo, hi); changed_now = true; }
         if (hi_active) { hi = clampd(x_to_v(ImGui::GetIO().MousePos.x), v_min, v_max); apply_constraints(lo, hi); changed_now = true; }
 
-        // Knobs
+        // Recompute x positions
         x_lo = v_to_x(lo); x_hi = v_to_x(hi);
-        dl->AddCircleFilled(ImVec2(x_lo, bar_y), knob_radius_px, (lo_active || lo_hover) ? col_grab_a : col_grab, 20);
-        dl->AddCircleFilled(ImVec2(x_hi, bar_y), knob_radius_px, (hi_active || hi_hover) ? col_grab_a : col_grab, 20);
 
-        // Second label format pass (reuse the SAME buffers — no redefinition)
+        // selected region
+        float sel_x0 = ImMin(x_lo, x_hi);
+        float sel_x1 = ImMax(x_lo, x_hi);
+        dl->AddRectFilled(
+            ImVec2(sel_x0, track_cy - half_th),
+            ImVec2(sel_x1, track_cy + half_th),
+            col_bar_sel, half_th
+        );
+
+        // Rectangular grabs (full frame height)
+        const ImU32 col_grab = ImGui::GetColorU32(ImGuiCol_SliderGrab);
+        const ImU32 col_grab_act = ImGui::GetColorU32(ImGuiCol_SliderGrabActive);
+        const float grab_round = style.FrameRounding;
+
+        auto draw_grab = [&](float cx, bool active, bool hover) {
+            (void)hover;
+            ImU32 col = active ? col_grab_act : col_grab;
+            ImRect r(ImVec2(cx - grab_w * 0.5f, frame_rect.Min.y),
+                ImVec2(cx + grab_w * 0.5f, frame_rect.Max.y));
+            dl->AddRectFilled(r.Min, r.Max, col, grab_round);
+            if (border_size > 0.0f) {
+                const ImU32 col_b = ImGui::GetColorU32(ImGuiCol_Border);
+                dl->AddRect(r.Min, r.Max, col_b, grab_round, 0, border_size * 0.5f);
+            }
+        };
+        draw_grab(x_lo, lo_active || lo_hover, lo_hover);
+        draw_grab(x_hi, hi_active || hi_hover, hi_hover);
+
+        // ---- labels ABOVE the slider (like your original) ----
         format_hz_si(lbl_lo, sizeof(lbl_lo), lo);
         format_hz_si(lbl_hi, sizeof(lbl_hi), hi);
-        sz_lo = ImGui::CalcTextSize(lbl_lo); sz_hi = ImGui::CalcTextSize(lbl_hi);
-        const float text_baseline = bb.Min.y + (sz_lo.y > sz_hi.y ? sz_lo.y : sz_hi.y);
+        sz_lo = ImGui::CalcTextSize(lbl_lo);  // reuse vars safely
+        sz_hi = ImGui::CalcTextSize(lbl_hi);
+        const ImU32 col_text = ImGui::GetColorU32(ImGuiCol_Text);
+        const float text_baseline = bb.Min.y + labels_h; // top area is from bb.Min.y up to labels_h
         dl->AddText(ImVec2(x_lo - sz_lo.x * 0.5f, text_baseline - sz_lo.y), col_text, lbl_lo);
         dl->AddText(ImVec2(x_hi - sz_hi.x * 0.5f, text_baseline - sz_hi.y), col_text, lbl_hi);
 
+        // Optional: snap on release
         static bool lo_was = false, hi_was = false;
-        if (lo_was && !lo_active && snap_125_on_rel) { lo = snap125(lo); apply_constraints(lo, hi); changed_now = true; }
-        if (hi_was && !hi_active && snap_125_on_rel) { hi = snap125(hi); apply_constraints(lo, hi); changed_now = true; }
+        if (snap_125_on_rel) {
+            if (lo_was && !lo_active && ImGui::IsMouseReleased(0)) { lo = snap125(lo); apply_constraints(lo, hi); changed_now = true; }
+            if (hi_was && !hi_active && ImGui::IsMouseReleased(0)) { hi = snap125(hi); apply_constraints(lo, hi); changed_now = true; }
+        }
         lo_was = lo_active; hi_was = hi_active;
 
         ImGui::PopID();
         ImGui::EndGroup();
 
-        bool any_change = changed_now || (lo != *v_lower) || (hi != *v_upper);
+        const bool any_change = changed_now || (lo != *v_lower) || (hi != *v_upper);
         *v_lower = lo; *v_upper = hi;
         return any_change;
     }
+
 
 
     static bool DrawNetworkAcquireButton(

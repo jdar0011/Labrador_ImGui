@@ -140,6 +140,10 @@ class App : public AppBase<App>
 		PlotWidgetObj.SetNetworkAnalyser(&na, &na_cfg);
 		PlotWidgetObj.SetControllers(&OSCWidget, &specCtlWidget, &netCtlWidget);
 
+		// set network and spectrum widgets to initially closed
+		netCtlWidget.SetInitClosed();
+		specCtlWidget.SetInitClosed();
+
 		IM_ASSERT(psu_ret);
 		IM_ASSERT(sg_ret);
 		IM_ASSERT(osc_ret);
@@ -157,6 +161,29 @@ class App : public AppBase<App>
     // Anything that needs to be called cyclically INSIDE of the main application loop
     void Update()
     {
+		{
+			using clock = std::chrono::high_resolution_clock;
+			static auto t_prev = clock::now();
+			static double fps_smooth = 0.0;
+
+			auto t_now = clock::now();
+			double dt = std::chrono::duration<double>(t_now - t_prev).count();
+			t_prev = t_now;
+
+			// Frame time in milliseconds
+			double frame_ms = dt * 1000.0;
+
+			// Instantaneous FPS
+			double fps = (dt > 0.0) ? 1.0 / dt : 0.0;
+
+			// Exponential smoothing
+			double alpha = 0.1;
+			fps_smooth = (fps_smooth == 0.0) ? fps : fps_smooth * (1.0 - alpha) + fps * alpha;
+
+			// Print or display
+			printf("Frame: %.2f ms (%.1f FPS)\n", frame_ms, fps);
+		}
+
 		
 		{
 			// Main window

@@ -18,6 +18,7 @@
 #include "NetworkAnalyser.hpp"
 #include "implot_internal.h"
 #include <chrono>
+#include "util.h"
 using Clock = std::chrono::steady_clock;
 
 
@@ -97,23 +98,54 @@ public:
 
 		// --- Compute available region ---
 		ImVec2 region_size = ImGui::GetContentRegionAvail();
+		const ImGuiStyle& st = ImGui::GetStyle();
 		float row_height = ImGui::GetFrameHeightWithSpacing();
-		float usable_height = region_size.y - (text_window ? 3.0f * row_height : row_height);
+
+		// Bottom UI: help button + small cursor props table row
+		// (your current layout has the help button and the tiny 1-row table).
+		float bottom_misc_h = row_height; // one line worth
+
+		// If cursor props are shown, add one more line (the values row you add)
+		if (osc_control->Cursor1toggle && osc_control->Cursor2toggle) {
+			bottom_misc_h += row_height;
+		}
+
+		// If Signal Properties toggle is on, reserve its height up front.
+		// We assume phase table is shown if you want it included in the layout.
+		float signal_props_h = 0.0f;
+		if (osc_control->SignalPropertiesToggle) {
+			// how many signals you pass below (OSC1, OSC2, Math)
+			const int signal_count = 3;
+			const bool include_phase = true; // set false if you don't want to reserve for phase table
+			signal_props_h = EstimateSignalPropsHeight(signal_count, include_phase);
+		}
+
+		// Total reserved height for bottom UI
+		float reserved_bottom_h = bottom_misc_h + signal_props_h;
+
+		// Safety clamp so we never go negative
+		float usable_height = std::max(0.0f, region_size.y - reserved_bottom_h);
 
 		// --- Count how many vertical plots we need ---
 		int plot_count = 1; // base oscilloscope plot
-		if (sa_control->SA.On)
-			plot_count++;
-		if (na_control->NA.Display && na != nullptr)
-			plot_count++;
+		if (sa_control->SA.On)               plot_count++;
+		if (na_control->NA.Display && na)    plot_count++;
+
+		// If nothing to draw above, avoid div-by-zero and still give minimal height
+		if (plot_count <= 0) plot_count = 1;
 
 		// --- Divide vertical space evenly ---
 		float per_plot_height = usable_height / (float)plot_count;
+		// Optional: enforce a minimum plot height, stealing a few px from the bottom if needed
+		const float min_plot_h = 120.0f;
+		if (per_plot_height < min_plot_h && usable_height > 0.0f) {
+			per_plot_height = std::min(min_plot_h, usable_height / (float)plot_count);
+		}
 
-		// --- Oscilloscope plot ---
+		// --- Sizes for each plot section ---
 		ImVec2 plot_size = ImVec2(region_size.x, per_plot_height);
 
-		// --- Spectrum Analyser plots ---
+		// Spectrum Analyser plots
 		ImVec2 plot_size_spectrum = ImVec2(0, 0);
 		ImVec2 plot_size_spectrum_magnitude = ImVec2(0, 0);
 		if (sa_control->SA.On) {
@@ -121,7 +153,7 @@ public:
 			plot_size_spectrum_magnitude = plot_size_spectrum;
 		}
 
-		// --- Network Analyser plots ---
+		// Network Analyser plots
 		ImVec2 plot_size_network = ImVec2(0, 0);
 		ImVec2 plot_size_network_magnitude = ImVec2(0, 0);
 		ImVec2 plot_size_network_phase = ImVec2(0, 0);
@@ -133,6 +165,7 @@ public:
 				plot_size_network_phase = plot_size_network_magnitude;
 			}
 		}
+
 
 		
 		ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(255, 255, 255, 255));
@@ -225,8 +258,8 @@ public:
 			// If none are visible, reset to default
 			if (osc_control->AutofitX)
 			{
-				double T_osc1 = OSC1Data.GetPeriod();
-				double T_osc2 = OSC2Data.GetPeriod();
+				double T_osc1 = OSC1Data.GetTimeBetweenTriggers();
+				double T_osc2 = OSC2Data.GetTimeBetweenTriggers();
 				double T = init_time_range_upper;
 				if (osc_control->DisplayCheckOSC1 && !osc_control->DisplayCheckOSC2)
 				{
@@ -316,26 +349,43 @@ public:
 			// Set OscData Time Vector to match the current X-axis
 			OSC2Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
 			// Plot Math Signal
+			// --- Math Signal ---
 			double math_time_step = OSC1Data.GetTimeStep();
 			std::string expr = osc_control->MathControls1.Text;
 			bool parse_success = false;
+
 			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2, parse_success);
-			if (parse_success)
-			{
+
+			if (parse_success) {
 				osc_control->MathControls1.Parsable = true;
-				if (osc_control->MathControls1.On)
-				{
-					std::vector<double> time_math = time_osc1.size() >= time_osc2.size() ? time_osc1 : time_osc2;
-					MathData.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max, time_math);
-					MathData.SetData(math_data);
-					ImPlot::SetNextLineStyle(osc_control->MathColour.Value);
-					ImPlot::PlotLine("##Math", time_osc1.data(), math_data.data(), math_data.size());
+
+				if (osc_control->MathControls1.On) {
+					// choose a time base
+					std::vector<double> time_math = (time_osc1.size() >= time_osc2.size()) ? time_osc1 : time_osc2;
+
+					// if result is empty or time base is empty, clear and bail
+					if (math_data.empty() || time_math.empty()) {
+						MathData.SetData({});                 // <<< clear stale MATH buffer
+					}
+					else {
+						// update MathData only when we actually have samples to show
+						MathData.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max, time_math);
+						MathData.SetData(math_data);
+						ImPlot::SetNextLineStyle(osc_control->MathColour.Value);
+						ImPlot::PlotLine("##Math", time_math.data(), math_data.data(), (int)math_data.size());
+					}
+				}
+				else {
+					// toggle is OFF → clear any previous math samples
+					MathData.SetData({});                     // <<< clear when OFF
 				}
 			}
-			else
-			{
+			else {
+				// parse failed → not parsable, clear any previous math samples
 				osc_control->MathControls1.Parsable = false;
+				MathData.SetData({});                         // <<< clear on parse failure
 			}
+
 			// Plot cursors
 			if (osc_control->Cursor1toggle)
 				drawCursor(1, &cursor1_x, &cursor1_y);
@@ -726,52 +776,304 @@ public:
 				ImGui::TableNextRow();
 			}
 
-			if (osc_control->SignalPropertiesToggle)
-			{
-				writeSignalProps(OSC1Data, osc_control->OSC1Colour);
-				ImGui::TableNextRow();
-				writeSignalProps(OSC2Data, osc_control->OSC2Colour);
-			}
-
 			ImGui::EndTable();
 		}
-		
+		if (osc_control->SignalPropertiesToggle)
+		{
+			DrawSignalPropertiesPanel(
+				std::vector<OscData>{ OSC1Data, OSC2Data, MathData },
+				std::vector<ImVec4>{
+				osc_control->OSC1Colour.Value,
+					osc_control->OSC2Colour.Value,
+					osc_control->MathColour.Value
+			}
+			);
+		}
 		ImGui::PopStyleColor();
+
+		OSC1Data.GetPeriod();
+
+	}
+	// ===== Helpers =====
+	static inline bool valid_num(double x) { return std::isfinite(x); }
+	static inline double wrap_deg(double a) {
+		if (!std::isfinite(a)) return a;
+		a = std::fmod(a + 180.0, 360.0);
+		if (a < 0) a += 360.0;
+		return a - 180.0;
+	}
+	// Right-align within current column
+	static void ValueCellOrDash(double v, const char* fmt) {
+		char buf[64];
+		if (valid_num(v)) std::snprintf(buf, sizeof(buf), fmt, v);
+		else              std::snprintf(buf, sizeof(buf), "—");
+		float txt_w = ImGui::CalcTextSize(buf).x;
+		float col_w = ImGui::GetColumnWidth();
+		float x0 = ImGui::GetCursorPosX();
+		float pad = ImGui::GetStyle().CellPadding.x;
+		float x = x0 + col_w - txt_w - pad;
+		if (x > x0) ImGui::SetCursorPosX(x);
+		ImGui::TextUnformatted(buf);
 	}
 
-	void writeSignalProps(OscData data, ImVec4 col)
+	// ===== Panel =====
+	void DrawSignalPropertiesPanel(const std::vector<OscData>& signals_in,
+		const std::vector<ImVec4>& colors_in)
 	{
-		double T = data.GetPeriod();
-		double Vpp = data.GetVpp();
-		
+		ImGui::PushID(&signals_in);
 
-		ImGui::TableNextColumn();
-		ImGui::TextColored(col, "OSC%d Signal Properties: ", data.GetChannel());
+		// -------------------- 0) Build filtered rows (OSC1/OSC2 by toggles, MATH only if valid) --------------------
+		struct Row { const OscData* s; ImVec4 color; std::string name; };
+		std::vector<Row> rows; rows.reserve(3);
 
-		if (T != (double)-1 && T != 0)
+		auto has_nonempty_signal = [](const OscData& s)->bool {
+			// Heuristic “has data” check; swap for s.HasSamples() if you have it.
+			return std::isfinite(s.GetVpp()) || std::isfinite(s.GetVrms()) ||
+				std::isfinite(s.GetVmax()) || std::isfinite(s.GetVmin());
+		};
+
+		// Expecting signals_in = { OSC1, OSC2, MATH } in this order
+		// Guard for size but handle gracefully
+		const OscData* s1 = (signals_in.size() > 0) ? &signals_in[0] : nullptr;
+		const OscData* s2 = (signals_in.size() > 1) ? &signals_in[1] : nullptr;
+		const OscData* sm = (signals_in.size() > 2) ? &signals_in[2] : nullptr;
+
+		ImVec4 c1 = (colors_in.size() > 0) ? colors_in[0] : ImGui::GetStyleColorVec4(ImGuiCol_Text);
+		ImVec4 c2 = (colors_in.size() > 1) ? colors_in[1] : ImGui::GetStyleColorVec4(ImGuiCol_Text);
+		ImVec4 cm = (colors_in.size() > 2) ? colors_in[2] : ImGui::GetStyleColorVec4(ImGuiCol_Text);
+
+		// Include OSC1/OSC2 only if their display toggles are on
+		if (s1 && osc_control->DisplayCheckOSC1) rows.push_back(Row{ s1, c1, "OSC1" });
+		if (s2 && osc_control->DisplayCheckOSC2) rows.push_back(Row{ s2, c2, "OSC2" });
+
+		// Include MATH only if it has a valid/non-empty signal
+		if (sm && has_nonempty_signal(*sm))      rows.push_back(Row{ sm, cm, "MATH" });
+
+		const int ROWS = (int)rows.size();
+		const ImGuiStyle& st = ImGui::GetStyle();
+
+		auto total_table_width_fixed = [&](const std::vector<float>& w, int col_count)->float {
+			float sum = 0.0f; for (int c = 0; c < col_count; ++c) sum += w[c];
+			sum += (col_count + 1) * st.CellPadding.x * 2.0f + 4.0f; // padding/border allowance
+			return sum;
+		};
+
+		// ============================================================================================
+		// 1) SIGNAL PROPERTIES TABLE  (click-to-collapse + auto-collapse, non-stretch, non-resizable)
+		// ============================================================================================
 		{
-			// Period found
-			ImGui::TableNextColumn();
-			ImGui::Text(u8"\u2206T = % .2f ms", 1000 * T);
-			ImGui::TableNextColumn();
-			ImGui::Text(u8"1/\u2206T = %.2f Hz", 1 / T);
+			ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+			if (ImGui::CollapsingHeader("Signal Properties##sigprops", ImGuiTreeNodeFlags_DefaultOpen)) {
+
+				enum ColID { C_CH = 0, C_T, C_F, C_VPP, C_VMAX, C_VMIN, C_VAVG, C_VRMS, C__COUNT };
+				const char* L[C__COUNT] = { "Ch","Period (ms)","Freq (Hz)","Vpp (V)","Vmax (V)","Vmin (V)","Vavg (V)","Vrms (V)" };
+				const float W_FULL[C__COUNT] = { 44, 88, 88, 78, 78, 78, 78, 78 };
+				const float W_MIN[C__COUNT] = { 44, 12, 12, 12, 12, 12, 12, 12 }; // tight collapsed widths
+
+				static bool userCollapsed[C__COUNT] = { false,false,false,false,false,false,false,false };
+				userCollapsed[C_CH] = false; // Channel never collapses
+				bool autoCollapsed[C__COUNT] = { false,false,false,false,false,false,false,false };
+
+				std::vector<float> colW(C__COUNT);
+				for (int c = 0; c < C__COUNT; ++c)
+					colW[c] = (userCollapsed[c] || autoCollapsed[c]) ? W_MIN[c] : W_FULL[c];
+
+				float desired_w = total_table_width_fixed(colW, C__COUNT);
+				float avail_w = ImGui::GetContentRegionAvail().x;
+
+				// auto-collapse from rightmost to left until it fits (skip channel col)
+				if (desired_w > avail_w) {
+					for (int c = C__COUNT - 1; c >= 1 && desired_w > avail_w; --c) {
+						if (!userCollapsed[c]) {
+							autoCollapsed[c] = true;
+							colW[c] = W_MIN[c];
+							desired_w = total_table_width_fixed(colW, C__COUNT);
+						}
+					}
+				}
+
+				const ImGuiTableFlags tf =
+					ImGuiTableFlags_SizingFixedFit |
+					ImGuiTableFlags_RowBg |
+					ImGuiTableFlags_BordersOuter |
+					ImGuiTableFlags_BordersV |
+					ImGuiTableFlags_NoHostExtendX; // don't stretch
+
+				if (ImGui::BeginTable("##sigprops_table", C__COUNT, tf, ImVec2(desired_w, 0.0f))) {
+					const ImGuiTableColumnFlags CF = ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize;
+
+					for (int c = 0; c < C__COUNT; ++c)
+						ImGui::TableSetupColumn(L[c], CF, colW[c]);
+
+					// header row (click toggles USER collapse; widths update next frame)
+					ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+					for (int c = 0; c < C__COUNT; ++c) {
+						ImGui::TableSetColumnIndex(c);
+						const bool effCollapsed = userCollapsed[c] || autoCollapsed[c];
+						ImGui::PushStyleColor(ImGuiCol_Text, effCollapsed ? ImVec4(1, 1, 1, 0.35f) : ImGui::GetStyleColorVec4(ImGuiCol_Text));
+						ImGui::Selectable(L[c], false, ImGuiSelectableFlags_AllowDoubleClick);
+						bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+						ImGui::PopStyleColor();
+						if (clicked && c != C_CH) userCollapsed[c] = !userCollapsed[c];
+						if (ImGui::IsItemHovered()) ImGui::SetTooltip(effCollapsed ? "Click to expand" : "Click to collapse");
+					}
+
+					// rows
+					if (ROWS == 0) {
+						ImGui::TableNextRow();
+						ImGui::TableSetColumnIndex(C_CH);
+						ImGui::TextDisabled("No signals");
+					}
+					else {
+						for (int r = 0; r < ROWS; ++r) {
+							const OscData& s = *rows[r].s;
+							ImGui::TableNextRow();
+
+							ImGui::TableSetColumnIndex(C_CH);
+							ImGui::TextColored(rows[r].color, "%s", rows[r].name.c_str());
+
+							double T = s.GetPeriod();
+							double f = (std::isfinite(T) && T > 0.0) ? 1.0 / T : std::numeric_limits<double>::quiet_NaN();
+							ImGui::TableSetColumnIndex(C_T);   ValueCellOrDash(std::isfinite(T) ? (1000.0 * T) : T, "%.3f");
+							ImGui::TableSetColumnIndex(C_F);   ValueCellOrDash(f, "%.3f");
+
+							ImGui::TableSetColumnIndex(C_VPP);  ValueCellOrDash(s.GetVpp(), "%.3f");
+							ImGui::TableSetColumnIndex(C_VMAX); ValueCellOrDash(s.GetVmax(), "%.3f");
+							ImGui::TableSetColumnIndex(C_VMIN); ValueCellOrDash(s.GetVmin(), "%.3f");
+							ImGui::TableSetColumnIndex(C_VAVG); ValueCellOrDash(s.GetVavg(), "%.3f");
+							ImGui::TableSetColumnIndex(C_VRMS); ValueCellOrDash(s.GetVrms(), "%.3f");
+						}
+					}
+
+					ImGui::EndTable();
+				}
+
+				ImGui::Dummy(ImVec2(0, 2)); // bottom border breathing room
+			}
 		}
-		else
-		{
-			ImGui::TableNextColumn();
-			ImGui::Text("[No periodicity detected] ");
+
+		// ============================================================================================
+		// 2) PHASE DIFFERENCE TABLE  (same collapse rules, uses filtered rows)
+		// ============================================================================================
+		if (ROWS >= 2) {
+			// FIX: correct NaN initialization syntax
+			std::vector<double> phi(ROWS, std::numeric_limits<double>::quiet_NaN());
+			for (int i = 0; i < ROWS; ++i)
+				phi[i] = rows[i].s->GetPhaseDeg();
+
+			bool any_pair = false;
+			for (int i = 0; i < ROWS && !any_pair; ++i)
+				for (int j = 0; j < ROWS && !any_pair; ++j)
+					if (i != j && std::isfinite(phi[i]) && std::isfinite(phi[j]))
+			ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+			if (ImGui::CollapsingHeader("Phase Difference (degrees)##phase", ImGuiTreeNodeFlags_DefaultOpen)) {
+				const int COLS = ROWS + 1;
+
+				std::vector<float> W_FULL(COLS, 84.0f), W_MIN(COLS, 12.0f);
+				W_FULL[0] = 96.0f;  W_MIN[0] = 72.0f; // left label col
+
+				static std::unordered_map<std::string, bool> userCollapsedPhase;
+				auto key_of = [](const std::string& s) { return std::string("PHASE:") + s; };
+
+				std::vector<std::string> label(COLS);
+				label[0] = u8"\u0394\u03A6 (deg)";
+				for (int j = 0; j < ROWS; ++j)
+					label[j + 1] = rows[j].name;
+
+				std::vector<bool> autoCollapsed(COLS, false);
+				std::vector<float> colW(COLS);
+
+				auto computeW = [&]() {
+					for (int c = 0; c < COLS; ++c) {
+						bool uc = (c == 0) ? false : (userCollapsedPhase[key_of(label[c])] == true);
+						bool ac = autoCollapsed[c];
+						colW[c] = (uc || ac) ? W_MIN[c] : W_FULL[c];
+					}
+				};
+				computeW();
+
+				float desired_w = total_table_width_fixed(colW, COLS);
+				float avail_w = ImGui::GetContentRegionAvail().x;
+				if (desired_w > avail_w) {
+					for (int c = COLS - 1; c >= 1 && desired_w > avail_w; --c) {
+						if (!userCollapsedPhase[key_of(label[c])]) {
+							autoCollapsed[c] = true;
+							computeW();
+							desired_w = total_table_width_fixed(colW, COLS);
+						}
+					}
+				}
+
+				const ImGuiTableFlags tf =
+					ImGuiTableFlags_SizingFixedFit |
+					ImGuiTableFlags_RowBg |
+					ImGuiTableFlags_BordersOuter |
+					ImGuiTableFlags_Borders |
+					ImGuiTableFlags_NoHostExtendX;
+
+				if (ImGui::BeginTable("##phase_matrix", COLS, tf, ImVec2(desired_w, 0.0f))) {
+					const ImGuiTableColumnFlags CF = ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize;
+
+					for (int c = 0; c < COLS; ++c)
+						ImGui::TableSetupColumn(label[c].c_str(), CF, colW[c]);
+
+					ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+					for (int c = 0; c < COLS; ++c) {
+						ImGui::TableSetColumnIndex(c);
+						bool effCollapsed = (c == 0) ? false : (userCollapsedPhase[key_of(label[c])] == true);
+						ImGui::PushStyleColor(ImGuiCol_Text, (effCollapsed || autoCollapsed[c])
+							? ImVec4(1, 1, 1, 0.35f)
+							: ImGui::GetStyleColorVec4(ImGuiCol_Text));
+						ImGui::Selectable(label[c].c_str(), false, ImGuiSelectableFlags_AllowDoubleClick);
+						bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+						ImGui::PopStyleColor();
+						if (clicked && c != 0)
+							userCollapsedPhase[key_of(label[c])] = !userCollapsedPhase[key_of(label[c])];
+						if (ImGui::IsItemHovered())
+							ImGui::SetTooltip((effCollapsed || autoCollapsed[c]) ? "Click to expand" : "Click to collapse");
+					}
+
+					auto wrap_deg = [](double a)->double {
+						if (!std::isfinite(a)) return a;
+						a = std::fmod(a + 180.0, 360.0);
+						if (a < 0) a += 360.0;
+						return a - 180.0;
+					};
+
+					for (int i = 0; i < ROWS; ++i) {
+						ImGui::TableNextRow();
+						ImGui::TableSetColumnIndex(0);
+						ImGui::TextColored(rows[i].color, "Ref: %s", rows[i].name.c_str());
+
+						for (int j = 0; j < ROWS; ++j) {
+							ImGui::TableSetColumnIndex(j + 1);
+							double val;
+							if (i == j) val = 0.0;
+							else if (std::isfinite(phi[i]) && std::isfinite(phi[j]))
+								val = wrap_deg(phi[j] - phi[i]);
+							else
+								val = std::numeric_limits<double>::quiet_NaN();
+							ValueCellOrDash(val, "%.2f");
+						}
+					}
+
+					ImGui::EndTable();
+				}
+
+				ImGui::Dummy(ImVec2(0, 2));
+			}
 		}
-		if (Vpp < 100 && Vpp > 0)
-		{
-			ImGui::TableNextColumn();
-			ImGui::Text("Vpp = %.2f V", Vpp);
-		}
-		else
-		{
-			ImGui::TableNextColumn();
-			ImGui::Text(" [No voltage min/max detected] ");
-		}
+
+
+		ImGui::PopID();
 	}
+
+
+
+
+
+
+	
 
 	void drawCursor(int id, double* cx, double* cy)
 	{
@@ -1574,6 +1876,42 @@ protected:
 			ImPlot::SetupAxisTicks(axis_x, ticks.data(), (int)ticks.size(), /*labels*/ nullptr);
 	}
 
+	// Estimate how tall the Signal Properties + (optional) Phase tables will be.
+	// Uses ImGui metrics so it matches your font/spacing.
+	// Note: we assume both collapsing headers are OPEN when toggled on.
+	// If you want to be conservative, keep `include_phase = true`.
+	static float EstimateSignalPropsHeight(int signal_count, bool include_phase) {
+		const ImGuiStyle& st = ImGui::GetStyle();
+		const float row_h = ImGui::GetTextLineHeightWithSpacing();
+		const float hdr_row = ImGui::GetFrameHeightWithSpacing(); // collapsing header height
+
+		// --- Signal Properties table (header + rows) ---
+		const int sig_rows = std::max(1, signal_count); // at least 1 empty row
+		const float sig_table_h =
+			// header row + column headers + rows
+			(row_h /*table header row*/)+
+			(sig_rows * row_h) +
+			st.CellPadding.y * 2.0f + st.FrameBorderSize;
+
+		// --- Phase Difference table (header + N rows) ---
+		float phase_table_h = 0.0f;
+		if (include_phase && signal_count >= 2) {
+			const int phase_rows = signal_count; // one row per reference
+			phase_table_h =
+				(row_h /*table header row*/)+
+				(phase_rows * row_h) +
+				st.CellPadding.y * 2.0f + st.FrameBorderSize;
+		}
+
+		// Collapsing headers + a touch of spacing between tables
+		float total =
+			hdr_row + sig_table_h + st.ItemSpacing.y +
+			(include_phase ? (hdr_row + phase_table_h + st.ItemSpacing.y) : 0.0f);
+
+		// small breathing room so the bottom border stays visible
+		total += 2.0f;
+		return total;
+	}
 
 	
 };
