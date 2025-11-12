@@ -147,6 +147,7 @@
     <ClInclude Include="src\MiniHLInput.h" />
     <ClInclude Include="src\NetworkAnalyserControl.hpp" />
     <ClInclude Include="src\SpectrumAnalyserControl.hpp" />
+    <ClInclude Include="src\AnalysisToolsWidget.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />

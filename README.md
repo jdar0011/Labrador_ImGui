@@ -133,7 +133,7 @@ chmod +x package_mac.sh
 
 - **Syntax**
 - **Literals and Names**
-  - Signals: osc1   osc2
+  - Signals: osc1   osc2   t   
   - Numbers: 3    -4.2    1e-3
   - Constants: pi   e
 - **Operators**

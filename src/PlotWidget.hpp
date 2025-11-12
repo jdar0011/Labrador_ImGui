@@ -6,8 +6,6 @@
 #include <chrono>
 #include "OSCControl.hpp"
 #include "OscData.hpp"
-#include "NetworkAnalyserControl.hpp"
-#include "SpectrumAnalyserControl.hpp"
 #include "fftw3.h"
 #include "nfd.h"
 #include <fstream>
@@ -16,6 +14,7 @@
 #include <math.h>
 #include "ControlWidget.hpp"
 #include "NetworkAnalyser.hpp"
+#include "AnalysisToolsWidget.hpp"
 #include "implot_internal.h"
 #include <chrono>
 #include "util.h"
@@ -63,19 +62,15 @@ public:
 			this->na_cfg = na_cfg;
 		}
 	}
-	void SetControllers(OSCControl* osc_control, SpectrumAnalyserControl* sa_control, NetworkAnalyserControl* na_control)
+	void SetControllers(OSCControl* osc_control, AnalysisToolsWidget* analysis_tools_widget)
 	{
 		if (osc_control != this->osc_control)
 		{
 			this->osc_control = osc_control;
 		}
-		if (sa_control != this->sa_control)
+		if(analysis_tools_widget != this->analysis_tools_widget)
 		{
-			this->sa_control = sa_control;
-		}
-		if (na_control != this->na_control)
-		{
-			this->na_control = na_control;
+			this->analysis_tools_widget = analysis_tools_widget;
 		}
 	}
 
@@ -127,16 +122,21 @@ public:
 		float usable_height = std::max(0.0f, region_size.y - reserved_bottom_h);
 
 		// --- Count how many vertical plots we need ---
-		int plot_count = 1; // base oscilloscope plot
-		if (sa_control->SA.On)               plot_count++;
-		if (na_control->NA.Display && na)    plot_count++;
+		int plot_count = 1; // base oscilloscope plot (always)
 
-		// If nothing to draw above, avoid div-by-zero and still give minimal height
+		const bool show_spectrum = (analysis_tools_widget->ToolsOn && analysis_tools_widget->CurrentTab == 0);
+		const bool show_network = (analysis_tools_widget->ToolsOn && analysis_tools_widget->CurrentTab == 1 && na != nullptr);
+
+		if (show_spectrum) plot_count++;
+		if (show_network)  plot_count++;
+
+		// Safety: avoid div-by-zero; still give minimal height if nothing else is drawn
 		if (plot_count <= 0) plot_count = 1;
 
 		// --- Divide vertical space evenly ---
 		float per_plot_height = usable_height / (float)plot_count;
-		// Optional: enforce a minimum plot height, stealing a few px from the bottom if needed
+
+		// Optional: enforce a minimum plot height
 		const float min_plot_h = 120.0f;
 		if (per_plot_height < min_plot_h && usable_height > 0.0f) {
 			per_plot_height = std::min(min_plot_h, usable_height / (float)plot_count);
@@ -148,7 +148,7 @@ public:
 		// Spectrum Analyser plots
 		ImVec2 plot_size_spectrum = ImVec2(0, 0);
 		ImVec2 plot_size_spectrum_magnitude = ImVec2(0, 0);
-		if (sa_control->SA.On) {
+		if (show_spectrum) {
 			plot_size_spectrum = ImVec2(region_size.x, per_plot_height);
 			plot_size_spectrum_magnitude = plot_size_spectrum;
 		}
@@ -157,14 +157,18 @@ public:
 		ImVec2 plot_size_network = ImVec2(0, 0);
 		ImVec2 plot_size_network_magnitude = ImVec2(0, 0);
 		ImVec2 plot_size_network_phase = ImVec2(0, 0);
-		if (na_control->NA.Display && na != nullptr) {
+
+		if (show_network) {
 			plot_size_network = ImVec2(region_size.x, per_plot_height);
 			plot_size_network_magnitude = plot_size_network;
-			if (na_control->NA.PhaseOn) {
-				plot_size_network_magnitude.x *= 0.5f; // split horizontally
+
+			if (analysis_tools_widget->NA.PhaseOn) {
+				// Split horizontally: magnitude on the left, phase on the right
+				plot_size_network_magnitude.x *= 0.5f;
 				plot_size_network_phase = plot_size_network_magnitude;
 			}
 		}
+
 
 
 		
@@ -350,18 +354,18 @@ public:
 			OSC2Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
 			// Plot Math Signal
 			// --- Math Signal ---
-			double math_time_step = OSC1Data.GetTimeStep();
+			// choose a time base
+			std::vector<double> time_math = (time_osc1.size() >= time_osc2.size()) ? time_osc1 : time_osc2;
 			std::string expr = osc_control->MathControls1.Text;
 			bool parse_success = false;
 
-			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2, parse_success);
+			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2, time_math, parse_success);
 
 			if (parse_success) {
 				osc_control->MathControls1.Parsable = true;
 
 				if (osc_control->MathControls1.On) {
-					// choose a time base
-					std::vector<double> time_math = (time_osc1.size() >= time_osc2.size()) ? time_osc1 : time_osc2;
+					
 
 					// if result is empty or time base is empty, clear and bail
 					if (math_data.empty() || time_math.empty()) {
@@ -400,165 +404,232 @@ public:
 
 
 		// --- Spectrum Analyser ---
-		// Spectrum Analyser Acquire logic
-		ImPlotFlags spectrum_base_plot_flags = ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus;
-		if (sa_control->SA.Acquire)
-		{
-			switch (sa_control->SA.SignalComboCurrentItem)
-			{
-			case 0: // OSC1
-				OSC1Data.PerformSpectrumAnalysis(sa_control->SA.SampleRatesValues[sa_control->SA.SampleRatesComboCurrentItem],
-					sa_control->SA.TimeWindow,
-					sa_control->SA.WindowComboCurrentItem);
-				sa_control->SA.OSC1_last_captured = sa_control->SA.TimeWindow;
-				break;
-			case 1: // OSC2
-				OSC2Data.PerformSpectrumAnalysis(sa_control->SA.SampleRatesValues[sa_control->SA.SampleRatesComboCurrentItem],
-					sa_control->SA.TimeWindow,
-					sa_control->SA.WindowComboCurrentItem);
-				sa_control->SA.OSC2_last_captured = sa_control->SA.TimeWindow;
-				break;
-			}
+		// Always-run acquisition (independent of visibility/tab)
+		if (analysis_tools_widget->SA.Acquire) {
+			const int   sr = analysis_tools_widget->SA.SampleRatesValues[analysis_tools_widget->SA.SampleRatesComboCurrentItem];
+			const float tw = analysis_tools_widget->SA.TimeWindow;
+			const int   widx = analysis_tools_widget->SA.WindowComboCurrentItem;
+
+			OSC1Data.PerformSpectrumAnalysis(sr, tw, widx);
+			OSC2Data.PerformSpectrumAnalysis(sr, tw, widx);
+
+			analysis_tools_widget->SA.OSC1_last_captured = tw;
+			analysis_tools_widget->SA.OSC2_last_captured = tw;
 		}
-		std::vector<double>* spectrum_mag_p = nullptr;
-		std::vector<double>* spectrum_freq_p = nullptr;
-		static int Previous_SAC_SignalComboCurrentItem = sa_control->SA.SignalComboCurrentItem;
-		static int Previous_SAC_UnitsComboCurrentItem = sa_control->SA.UnitsComboCurrentItem;
+
+		// ---- Choose magnitude pointers by units (for both channels) ----
+		// Units: 0=dBm, 1=dBV, 2=V RMS
+		std::vector<double>* mag1 = nullptr;
+		std::vector<double>* mag2 = nullptr;
 		AxisLimitRanges magnitude_range = magnitude_db_range;
-		static double constraint_mag_lower = magnitude_db_range.constraint_lower;
-		static double constraint_mag_upper = magnitude_db_range.constraint_upper;
-		switch (sa_control->SA.SignalComboCurrentItem)
-		{
-		case 0: // OSC1
-			switch (sa_control->SA.UnitsComboCurrentItem)
-			{
-			case 0:
-				spectrum_mag_p = OSC1Data.GetSpectrumMagdB_p();
-				magnitude_range = magnitude_db_range;
-				break;
-			case 1:
-				spectrum_mag_p = OSC1Data.GetSpectrumMag_p();
-				magnitude_range = magnitude_VRMS_range;
-				break;
-			}
-			spectrum_freq_p = OSC1Data.GetSpectrumFreq_p();
-			ImPlot::SetNextLineStyle(osc_control->OSC1Colour);
+
+		switch (analysis_tools_widget->SA.UnitsComboCurrentItem) {
+		default:
+		case 0: // dBm
+			mag1 = OSC1Data.GetSpectrumMagdBm_p();
+			mag2 = OSC2Data.GetSpectrumMagdBm_p();
+			magnitude_range = magnitude_db_range;
 			break;
-		case 1: // OSC2
-			switch (sa_control->SA.UnitsComboCurrentItem)
-			{
-			case 0:
-				spectrum_mag_p = OSC2Data.GetSpectrumMagdB_p();
-				magnitude_range = magnitude_db_range;
-				break;
-			case 1:
-				spectrum_mag_p = OSC2Data.GetSpectrumMag_p();
-				magnitude_range = magnitude_VRMS_range;
-				break;
-			}
-			spectrum_freq_p = OSC2Data.GetSpectrumFreq_p();
-			ImPlot::SetNextLineStyle(osc_control->OSC2Colour);
+		case 1: // dBV
+			mag1 = OSC1Data.GetSpectrumMagdBV_p();
+			mag2 = OSC2Data.GetSpectrumMagdBV_p();
+			magnitude_range = magnitude_db_range;
+			break;
+		case 2: // V RMS
+			mag1 = OSC1Data.GetSpectrumMag_p();
+			mag2 = OSC2Data.GetSpectrumMag_p();
+			magnitude_range = magnitude_VRMS_range;
 			break;
 		}
-		if (spectrum_mag_p->size() > 0)
-		{
-			sa_control->SA.AcquisitionExists = true;
-		}
-		else
-		{
-			sa_control->SA.AcquisitionExists = false;
-		}
-		// Plot Spectrum Analyser
-		if (sa_control->SA.On)
-		{
-			if (ImPlot::BeginPlot("##SpectrumMagnitude",plot_size_spectrum_magnitude,spectrum_base_plot_flags))
-			{
-				switch (sa_control->SA.SignalComboCurrentItem) 
-				{
-					case 0: // OSC1
-						ImPlot::SetNextLineStyle(osc_control->OSC1Colour);
-						break;
-					case 1: // OSC2
-						ImPlot::SetNextLineStyle(osc_control->OSC2Colour);
-						break;
+
+		std::vector<double>* f1 = OSC1Data.GetSpectrumFreq_p();
+		std::vector<double>* f2 = OSC2Data.GetSpectrumFreq_p();
+
+		const bool has1 = (mag1 && !mag1->empty() && f1 && f1->size() >= 2);
+		const bool has2 = (mag2 && !mag2->empty() && f2 && f2->size() >= 2);
+
+		// Update existence flag even if we don't draw this frame
+		analysis_tools_widget->SA.AcquisitionExists = has1 || has2;
+
+		// -------- Plot only if Tools are visible AND Spectrum tab is active --------
+		if (analysis_tools_widget->ToolsOn && analysis_tools_widget->CurrentTab == 0) {
+			ImPlotFlags spectrum_base_plot_flags = ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus;
+
+			// Combined limits
+			double combined_xmin = init_freq_range_lower, combined_xmax = init_freq_range_upper;
+			double combined_ymin = magnitude_range.init_lower, combined_ymax = magnitude_range.init_upper;
+
+			if (has1 || has2) {
+				double xlo = std::numeric_limits<double>::infinity();
+				double xhi = 0.0;
+				if (has1) { xlo = std::min(xlo, (*f1)[1]); xhi = std::max(xhi, f1->back()); }
+				if (has2) { xlo = std::min(xlo, (*f2)[1]); xhi = std::max(xhi, f2->back()); }
+				if (std::isfinite(xlo) && xhi > 0) { combined_xmin = xlo; combined_xmax = xhi; }
+
+				double gmin = std::numeric_limits<double>::infinity();
+				double gmax = -std::numeric_limits<double>::infinity();
+				if (has1) {
+					gmin = std::min(gmin, *std::min_element(mag1->begin(), mag1->end()));
+					gmax = std::max(gmax, *std::max_element(mag1->begin(), mag1->end()));
 				}
+				if (has2) {
+					gmin = std::min(gmin, *std::min_element(mag2->begin(), mag2->end()));
+					gmax = std::max(gmax, *std::max_element(mag2->begin(), mag2->end()));
+				}
+				if (std::isfinite(gmin) && std::isfinite(gmax)) {
+					const double range = std::max(1e-12, gmax - gmin);
+					const double pad = std::max(1.0, 0.5 * range * (1.0 / 0.9 - 1.0));
+					combined_ymin = gmin - pad;
+					combined_ymax = gmax + pad;
+				}
+			}
+
+			// Dynamic Y constraints
+			static double constraint_mag_lower = magnitude_db_range.constraint_lower;
+			static double constraint_mag_upper = magnitude_db_range.constraint_upper;
+			if (!has1 && !has2) {
+				constraint_mag_lower = magnitude_range.constraint_lower;
+				constraint_mag_upper = magnitude_range.constraint_upper;
+			}
+			else {
+				double cmin = std::numeric_limits<double>::infinity();
+				double cmax = -std::numeric_limits<double>::infinity();
+				if (has1) { cmin = std::min(cmin, *std::min_element(mag1->begin(), mag1->end())); cmax = std::max(cmax, *std::max_element(mag1->begin(), mag1->end())); }
+				if (has2) { cmin = std::min(cmin, *std::min_element(mag2->begin(), mag2->end())); cmax = std::max(cmax, *std::max_element(mag2->begin(), mag2->end())); }
+				if (std::isfinite(cmin) && std::isfinite(cmax)) { constraint_mag_lower = cmin - 10.0; constraint_mag_upper = cmax + 10.0; }
+				else { constraint_mag_lower = magnitude_range.constraint_lower; constraint_mag_upper = magnitude_range.constraint_upper; }
+			}
+
+			// Decimated traces per channel (persist across frames)
+			static PlotTrace spectrum_plot_data_osc1;
+			static PlotTrace spectrum_plot_data_osc2;
+
+			// State remembered for re-decimation / refit
+			static double last_x_min = init_freq_range_lower;
+			static double last_x_max = init_freq_range_upper;
+			static int    prev_units = analysis_tools_widget->SA.UnitsComboCurrentItem;
+			static bool   prev_disp1 = analysis_tools_widget->SA.DisplayOSC1;
+			static bool   prev_disp2 = analysis_tools_widget->SA.DisplayOSC2;
+			static size_t prev_n1 = 0, prev_n2 = 0;
+			static double prev_f1_last = 0.0, prev_f2_last = 0.0;
+			static bool   first_plot = true;
+
+			// Data-change detector
+			const bool data_changed =
+				prev_n1 != (has1 ? f1->size() : 0) ||
+				prev_n2 != (has2 ? f2->size() : 0) ||
+				prev_f1_last != (has1 ? f1->back() : 0.0) ||
+				prev_f2_last != (has2 ? f2->back() : 0.0);
+
+			if (ImPlot::BeginPlot("##SpectrumMagnitude", plot_size_spectrum_magnitude, spectrum_base_plot_flags)) {
 				ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"Hz");
-				switch (sa_control->SA.UnitsComboCurrentItem)
-				{
-				case 0:
-					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dbV");
+
+				// --- Y-axis formatting & label ---
+				const int unit = analysis_tools_widget->SA.UnitsComboCurrentItem;
+				const char* y_label =
+					(unit == 0) ? "Magnitude (dBm)" :
+					(unit == 1) ? "Magnitude (dBV)" :
+					"Magnitude (V)";
+
+				switch (unit) {
+				case 0: // dBm
+					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dBm");
 					break;
-				case 1:
+				case 1: // dBV
+					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dBV");
+					break;
+				case 2: // V RMS
 					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
 					break;
 				}
-				// initial limtis
+
 				ImPlot::SetupAxesLimits(init_freq_range_lower, init_freq_range_upper,
-					magnitude_range.init_lower, magnitude_range.init_upper, ImPlotCond_Once);
-				if (sa_control->SA.Autofit || sa_control->SA.Acquire || spectrum_was_off || 
-					(sa_control->SA.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (sa_control->SA.UnitsComboCurrentItem != Previous_SAC_UnitsComboCurrentItem)) // any changes that require axes limits to be changed
-				{
-					if (spectrum_mag_p->size() <= 3)
-					{
-						ImPlot::SetupAxesLimits(init_freq_range_lower, init_freq_range_upper,
-							magnitude_range.init_lower, magnitude_range.init_upper, ImGuiCond_Always);
-					}
-					else
-					{
-						double mag_max = *std::max_element(spectrum_mag_p->begin(), spectrum_mag_p->end());
-						double mag_min = *std::min_element(spectrum_mag_p->begin(), spectrum_mag_p->end());
-						double mag_range = mag_max - mag_min;
-						double mag_frac = 0.9;
-						double pad = 0.5 * mag_range * (1 / mag_frac - 1);
-						pad = pad == 0 ? 1 : pad; // if flat line, add padding of 1
-						ImPlot::SetupAxesLimits((*spectrum_freq_p)[1], (*spectrum_freq_p)[spectrum_freq_p->size() - 1],
-							mag_min - pad, mag_max + pad, ImGuiCond_Always);
-					}
-					if (spectrum_mag_p->size() == 0)
-					{
-						constraint_mag_lower = magnitude_range.constraint_lower;
-						constraint_mag_upper = magnitude_range.constraint_upper;
-					}
-					else
-					{
-						constraint_mag_lower = *std::min_element(spectrum_mag_p->begin(), spectrum_mag_p->end()) - 10;
-						constraint_mag_upper = *std::max_element(spectrum_mag_p->begin(), spectrum_mag_p->end()) + 10;
-					}
-					
+					magnitude_range.init_lower, magnitude_range.init_upper,
+					ImPlotCond_Once);
+
+				if (first_plot ||
+					analysis_tools_widget->SA.Autofit ||
+					analysis_tools_widget->SA.Acquire ||
+					data_changed ||
+					prev_units != analysis_tools_widget->SA.UnitsComboCurrentItem) {
+					ImPlot::SetupAxesLimits(combined_xmin, combined_xmax, combined_ymin, combined_ymax, ImGuiCond_Always);
+					first_plot = false;
 				}
-				ImPlot::SetupAxes("Frequency (Hz)", "Magnitude (dbV/V)", ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
+
+				ImPlot::SetupAxes("Frequency (Hz)", y_label, ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
 				ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
-				if (spectrum_plot_data.x.size() == 0 || spectrum_freq_p->size() == 0) // constraints if no data
-				{
+
+				if (!has1 && !has2) {
 					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, init_freq_range_lower, init_freq_range_upper);
 					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, magnitude_range.constraint_lower, magnitude_range.constraint_upper);
 				}
-				else // constraints if data
-				{
-					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, (*spectrum_freq_p)[1], (*spectrum_freq_p)[spectrum_freq_p->size() - 1]);
+				else {
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, combined_xmin, combined_xmax);
 					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, constraint_mag_lower, constraint_mag_upper);
 				}
-				static double last_x_min = init_freq_range_lower;
-				static double last_x_max = init_freq_range_upper;
-				if (last_x_min != ImPlot::GetPlotLimits().X.Min || last_x_max != ImPlot::GetPlotLimits().X.Max || sa_control->SA.Acquire || (sa_control->SA.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (sa_control->SA.SignalComboCurrentItem != Previous_SAC_SignalComboCurrentItem) || (sa_control->SA.UnitsComboCurrentItem != Previous_SAC_UnitsComboCurrentItem)) // any changes that require plot to be re-decimated
-				{
-					// Subsample data to avoid excessive points on plot
-					spectrum_plot_data = DecimateLogPlotTrace(*spectrum_freq_p, *spectrum_mag_p);
+
+				// Re-decimate when needed (user zoom/pan or data change)
+				const bool must_redecimate =
+					analysis_tools_widget->SA.Autofit || analysis_tools_widget->SA.Acquire ||
+					(prev_units != analysis_tools_widget->SA.UnitsComboCurrentItem) ||
+					(prev_disp1 != analysis_tools_widget->SA.DisplayOSC1) ||
+					(prev_disp2 != analysis_tools_widget->SA.DisplayOSC2) ||
+					(last_x_min != ImPlot::GetPlotLimits().X.Min) ||
+					(last_x_max != ImPlot::GetPlotLimits().X.Max) ||
+					data_changed;
+
+				if (must_redecimate) {
+					if (has1) spectrum_plot_data_osc1 = DecimateLogPlotTrace(*f1, *mag1); else spectrum_plot_data_osc1 = PlotTrace{};
+					if (has2) spectrum_plot_data_osc2 = DecimateLogPlotTrace(*f2, *mag2); else spectrum_plot_data_osc2 = PlotTrace{};
+
 					last_x_min = ImPlot::GetPlotLimits().X.Min;
 					last_x_max = ImPlot::GetPlotLimits().X.Max;
+					prev_units = analysis_tools_widget->SA.UnitsComboCurrentItem;
+					prev_disp1 = analysis_tools_widget->SA.DisplayOSC1;
+					prev_disp2 = analysis_tools_widget->SA.DisplayOSC2;
+					prev_n1 = has1 ? f1->size() : 0;
+					prev_n2 = has2 ? f2->size() : 0;
+					prev_f1_last = has1 ? f1->back() : 0.0;
+					prev_f2_last = has2 ? f2->back() : 0.0;
 				}
-				ImPlot::PlotLine("##Spectrum", spectrum_plot_data.x.data(), spectrum_plot_data.y.data(), spectrum_plot_data.y.size());
+
+				// Plot enabled channels
+				if (analysis_tools_widget->SA.DisplayOSC1 && !spectrum_plot_data_osc1.x.empty()) {
+					ImPlot::SetNextLineStyle(analysis_tools_widget->OSC1Colour);
+					ImPlot::PlotLine("##SpectrumOSC1",
+						spectrum_plot_data_osc1.x.data(),
+						spectrum_plot_data_osc1.y.data(),
+						(int)spectrum_plot_data_osc1.y.size());
+				}
+				if (analysis_tools_widget->SA.DisplayOSC2 && !spectrum_plot_data_osc2.x.empty()) {
+					ImPlot::SetNextLineStyle(analysis_tools_widget->OSC2Colour);
+					ImPlot::PlotLine("##SpectrumOSC2",
+						spectrum_plot_data_osc2.x.data(),
+						spectrum_plot_data_osc2.y.data(),
+						(int)spectrum_plot_data_osc2.y.size());
+				}
+				// Draw semi-transparent "Spectrum" label in top-left
+				{
+					const ImPlotRect lim = ImPlot::GetPlotLimits();
+					ImPlot::PushStyleColor(ImPlotCol_InlayText, ImVec4(1, 1, 1, 0.40f));   // semi-transparent white
+					ImPlot::Annotation(
+						lim.X.Min, lim.Y.Max,                      // top-left in plot coords
+						ImVec4(0, 0, 0, 0),                        // col.w==0 -> use InlayText, no bg
+						ImVec2(8, -6),                             // pixel offset (right, up)
+						/*clamp=*/true,
+						"Spectrum"
+					);
+					ImPlot::PopStyleColor();
+				}
+
+
 				ImPlot::EndPlot();
-				// update prev state variables
-				Previous_SAC_SignalComboCurrentItem = sa_control->SA.SignalComboCurrentItem;
-				Previous_SAC_UnitsComboCurrentItem = sa_control->SA.UnitsComboCurrentItem;
 			}
-			spectrum_was_off = false;
 		}
-		else
-		{
-			spectrum_was_off = true;
-		}
+
+
+
+
 		
 		// Network Analyser
 		ImPlotFlags network_base_plot_flags = ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus;
@@ -568,10 +639,13 @@ public:
 		AxisLimitRanges network_magnitude_range = magnitude_db_range;
 		static double network_constraint_mag_lower = magnitude_db_range.constraint_lower;
 		static double network_constraint_mag_upper = magnitude_db_range.constraint_upper;
-		static int Previous_NAC_UnitsComboCurrentItem = sa_control->SA.UnitsComboCurrentItem;
+
+		// (fixed) track NA units, not SA units
+		static int Previous_NAC_UnitsComboCurrentItem = analysis_tools_widget->NA.UnitsComboCurrentItem;
+
 		if (na != nullptr) {
 			na_freq = na->freqs();      // Hz, must be > 0 for log scale
-			switch (na_control->NA.UnitsComboCurrentItem)
+			switch (analysis_tools_widget->NA.UnitsComboCurrentItem)
 			{
 			case 0:
 				na_mag = na->mag_dB();
@@ -589,28 +663,24 @@ public:
 			na_mag.clear();
 			na_phase.clear();
 		}
-		struct XTickBuf {
-			std::vector<double> ticks;
-		};
+
+		struct XTickBuf { std::vector<double> ticks; };
 		static XTickBuf g_na_xticks;
-		if (na_control->NA.Display)
+
+		if (analysis_tools_widget->ToolsOn && analysis_tools_widget->CurrentTab == 1)
 		{
 			// --- Magnitude Plot ------------------------------------------------------
 			if (ImPlot::BeginPlot("##NetworkAnalyser", plot_size_network_magnitude, network_base_plot_flags))
 			{
-				// Add fallback ticks only when no 10^k labels are visible
-				
 				ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"Hz");
-				switch (sa_control->SA.UnitsComboCurrentItem)
+				switch (analysis_tools_widget->NA.UnitsComboCurrentItem)
 				{
-				case 0:
-					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dbV");
-					break;
-				case 1:
-					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
-					break;
+				case 0: ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dB"); break;
+				case 1: ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");   break;
 				}
-				if (na_control->NA.Autofit || na->running() || network_was_off || (Previous_NAC_UnitsComboCurrentItem != na_control->NA.UnitsComboCurrentItem))
+
+				if (analysis_tools_widget->NA.Autofit || na->running() || network_was_off ||
+					(Previous_NAC_UnitsComboCurrentItem != analysis_tools_widget->NA.UnitsComboCurrentItem))
 				{
 					if (!na_freq.empty() && !na_mag.empty()) {
 						double mag_max = *std::max_element(na_mag.begin(), na_mag.end());
@@ -619,7 +689,7 @@ public:
 						double mag_frac = 0.9;
 						double pad = 0.5 * mag_range * (1 / mag_frac - 1);
 						pad = pad == 0 ? 1 : pad; // if flat line, add padding of 1
-						ImPlot::SetupAxesLimits(na_freq[0], na_freq[na_freq.size()-1],
+						ImPlot::SetupAxesLimits(na_freq[0], na_freq.back(),
 							mag_min - pad, mag_max + pad, ImPlotCond_Always);
 						network_constraint_mag_lower = *std::min_element(na_mag.begin(), na_mag.end()) - 10;
 						network_constraint_mag_upper = *std::max_element(na_mag.begin(), na_mag.end()) + 10;
@@ -632,10 +702,11 @@ public:
 						network_constraint_mag_upper = network_magnitude_range.constraint_upper;
 					}
 				}
-				if (na->running())
-				{
+
+				if (na->running()) {
 					ImPlot::SetupAxisLimits(ImAxis_X1, na_cfg->f_start, na_cfg->f_stop, ImPlotCond_Always);
 				}
+
 				// Axes: labels + units
 				ImPlot::SetupAxis(ImAxis_X1, "Frequency (Hz)", ImPlotAxisFlags_NoLabel);
 				ImPlot::SetupAxis(ImAxis_Y1, "Magnitude (dB)", ImPlotAxisFlags_NoLabel);
@@ -645,49 +716,57 @@ public:
 				ImPlot::SetupAxesLimits(na_cfg->f_start, na_cfg->f_stop,
 					network_magnitude_range.init_lower, network_magnitude_range.init_upper,
 					ImPlotCond_Once);
-				
-				if(!na_freq.empty() && !na_mag.empty() && !na->running()) // data exists
-				{
-					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, na_freq[0],na_freq[na_freq.size()-1]);
-				}
+
+				if (!na_freq.empty() && !na_mag.empty() && !na->running()) // data exists
+					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, na_freq[0], na_freq.back());
 				else // no data
-				{
 					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, na_cfg->f_start, na_cfg->f_stop);
-				}
-				if(na_mag.size() == 0 || na_freq.size() == 0) // constraints if no data
-				{
+
+				if (na_mag.empty() || na_freq.empty()) // constraints if no data
 					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, network_magnitude_range.constraint_lower, network_magnitude_range.constraint_upper);
-				}
 				else // constraints if data
-				{
 					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, network_constraint_mag_lower, network_constraint_mag_upper);
-				}
+
 				// Adaptive ticks from live view (no locking)
 				ApplyAdaptiveLogXTicks_Internal(ImAxis_X1);
-				ImPlot::SetNextLineStyle(na_control->NetworkAnalyserColour);
+
+				// (changed) Use a color from analysis_tools_widget (or replace with your dedicated NetworkAnalyserColour)
+				ImPlot::SetNextLineStyle(GetPlotColour(Plot_Blue));
+
 				if (!na_freq.empty()) {
 					// Guard: log scale requires strictly positive x
-					// (skip if any non-positive values slipped in)
 					bool x_ok = std::all_of(na_freq.begin(), na_freq.end(), [](double f) { return f > 0; });
 					if (x_ok) {
 						ImPlot::PlotLine("S-Param |Mag| (dB)", na_freq.data(), na_mag.data(), (int)na_freq.size());
 					}
 				}
+				{
+					const ImPlotRect lim = ImPlot::GetPlotLimits();
+					ImPlot::PushStyleColor(ImPlotCol_InlayText, ImVec4(1, 1, 1, 0.40f));
+					ImPlot::Annotation(
+						lim.X.Min, lim.Y.Max,
+						ImVec4(0, 0, 0, 0),
+						ImVec2(8, -6),
+						true,
+						"Network: Magnitude"
+					);
+					ImPlot::PopStyleColor();
+				}
+
 				ImPlot::EndPlot();
 			}
 
 			// --- Phase Plot (optional) -----------------------------------------------
-			if (na_control->NA.PhaseOn)
+			if (analysis_tools_widget->NA.PhaseOn)
 			{
 				ImGui::SameLine();
-				if (ImPlot::BeginPlot("##NetworkAnalyserPhase", plot_size_network_phase, spectrum_base_plot_flags))
+				if (ImPlot::BeginPlot("##NetworkAnalyserPhase", plot_size_network_phase, network_base_plot_flags))
 				{
-					
 					ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"Hz");
-
 					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"rad");
 
-					if(na_control->NA.Autofit || na->running() || network_was_off || (Previous_NAC_UnitsComboCurrentItem != na_control->NA.UnitsComboCurrentItem))
+					if (analysis_tools_widget->NA.Autofit || na->running() || network_was_off ||
+						(Previous_NAC_UnitsComboCurrentItem != analysis_tools_widget->NA.UnitsComboCurrentItem))
 					{
 						if (!na_freq.empty() && !na_phase.empty()) {
 							double phase_max = *std::max_element(na_phase.begin(), na_phase.end());
@@ -695,8 +774,8 @@ public:
 							double phase_range = phase_max - phase_min;
 							double phase_frac = 0.9;
 							double pad = 0.5 * phase_range * (1 / phase_frac - 1);
-							pad = pad == 0 ? 1 : pad; // if flat line, add padding of 1
-							ImPlot::SetupAxesLimits(na_freq[0], na_freq[na_freq.size() - 1],
+							pad = pad == 0 ? 1 : pad;
+							ImPlot::SetupAxesLimits(na_freq[0], na_freq.back(),
 								phase_min - pad, phase_max + pad, ImPlotCond_Always);
 						}
 						else
@@ -706,8 +785,7 @@ public:
 						}
 					}
 
-					if (na->running())
-					{
+					if (na->running()) {
 						ImPlot::SetupAxisLimits(ImAxis_X1, na_cfg->f_start, na_cfg->f_stop, ImPlotCond_Always);
 					}
 
@@ -718,34 +796,50 @@ public:
 					ImPlot::SetupAxesLimits(na_cfg->f_start, na_cfg->f_stop,
 						-M_PI, M_PI,
 						ImPlotCond_Once);
-					if (!na_freq.empty() && !na_mag.empty() && !na->running()) // data exists
-					{
-						ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, na_freq[0], na_freq[na_freq.size() - 1]);
-					}
-					else // no data
-					{
+
+					if (!na_freq.empty() && !na_mag.empty() && !na->running())
+						ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, na_freq[0], na_freq.back());
+					else
 						ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, na_cfg->f_start, na_cfg->f_stop);
-					}
+
 					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, -M_PI, M_PI);
-					// Adaptive ticks from live view (no locking)
+
 					ApplyAdaptiveLogXTicks_Internal(ImAxis_X1);
-					ImPlot::SetNextLineStyle(na_control->NetworkAnalyserColour);
+
+					// (changed) Use a color from analysis_tools_widget
+					ImPlot::SetNextLineStyle(GetPlotColour(Plot_Red));
+
 					if (!na_freq.empty()) {
 						bool x_ok = std::all_of(na_freq.begin(), na_freq.end(), [](double f) { return f > 0; });
 						if (x_ok) {
 							ImPlot::PlotLine("angle(S) (rad)", na_freq.data(), na_phase.data(), (int)na_freq.size());
 						}
 					}
+					{
+						const ImPlotRect lim = ImPlot::GetPlotLimits();
+						ImPlot::PushStyleColor(ImPlotCol_InlayText, ImVec4(1, 1, 1, 0.40f));
+						ImPlot::Annotation(
+							lim.X.Min, lim.Y.Max,
+							ImVec4(0, 0, 0, 0),
+							ImVec2(8, -6),
+							true,
+							"Network: Phase"
+						);
+						ImPlot::PopStyleColor();
+					}
+
 					ImPlot::EndPlot();
 				}
 			}
+
 			network_was_off = false;
-			Previous_SAC_UnitsComboCurrentItem = sa_control->SA.UnitsComboCurrentItem;
+			Previous_NAC_UnitsComboCurrentItem = analysis_tools_widget->NA.UnitsComboCurrentItem;
 		}
 		else
 		{
 			network_was_off = true;
 		}
+
 
 
 		
@@ -934,14 +1028,14 @@ public:
 
 							double T = s.GetPeriod();
 							double f = (std::isfinite(T) && T > 0.0) ? 1.0 / T : std::numeric_limits<double>::quiet_NaN();
-							ImGui::TableSetColumnIndex(C_T);   ValueCellOrDash(std::isfinite(T) ? (1000.0 * T) : T, "%.3f");
-							ImGui::TableSetColumnIndex(C_F);   ValueCellOrDash(f, "%.3f");
+							ImGui::TableSetColumnIndex(C_T);   ValueCellOrDash(std::isfinite(T) ? (1000.0 * T) : T, "%.1f");
+							ImGui::TableSetColumnIndex(C_F);   ValueCellOrDash(f, "%.1f");
 
-							ImGui::TableSetColumnIndex(C_VPP);  ValueCellOrDash(s.GetVpp(), "%.3f");
-							ImGui::TableSetColumnIndex(C_VMAX); ValueCellOrDash(s.GetVmax(), "%.3f");
-							ImGui::TableSetColumnIndex(C_VMIN); ValueCellOrDash(s.GetVmin(), "%.3f");
-							ImGui::TableSetColumnIndex(C_VAVG); ValueCellOrDash(s.GetVavg(), "%.3f");
-							ImGui::TableSetColumnIndex(C_VRMS); ValueCellOrDash(s.GetVrms(), "%.3f");
+							ImGui::TableSetColumnIndex(C_VPP);  ValueCellOrDash(s.GetVpp(), "%.1f");
+							ImGui::TableSetColumnIndex(C_VMAX); ValueCellOrDash(s.GetVmax(), "%.1f");
+							ImGui::TableSetColumnIndex(C_VMIN); ValueCellOrDash(s.GetVmin(), "%.1f");
+							ImGui::TableSetColumnIndex(C_VAVG); ValueCellOrDash(s.GetVavg(), "%.1f");
+							ImGui::TableSetColumnIndex(C_VRMS); ValueCellOrDash(s.GetVrms(), "%.1f");
 						}
 					}
 
@@ -1053,7 +1147,7 @@ public:
 								val = wrap_deg(phi[j] - phi[i]);
 							else
 								val = std::numeric_limits<double>::quiet_NaN();
-							ValueCellOrDash(val, "%.2f");
+							ValueCellOrDash(val, "%.1f");
 						}
 					}
 
@@ -1659,8 +1753,7 @@ protected:
 	double init_voltage_range_lower = -1.0;
 	double init_voltage_range_upper = 5.0;
 	OSCControl* osc_control;
-	SpectrumAnalyserControl* sa_control;
-	NetworkAnalyserControl* na_control;
+	AnalysisToolsWidget* analysis_tools_widget;
 	OscData OSC1Data = OscData(1);
 	OscData OSC2Data = OscData(2);
 	OscData MathData = OscData(0);

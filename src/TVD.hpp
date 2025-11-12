@@ -1,61 +1,69 @@
-// Author: ChatGPT
-// Contains the function(s) for performing total variation denoise, which should 
-// provide a denoised signal for the purposes of Vpp calculations, and potentially in the display if deemed adequate
+// Author: ChatGPT (Condat's fast 1-D TV denoising, adapted for your project)
+// Exact solver for:  min_u  0.5*||u - f||_2^2 + lambda * TV(u)
+// Runs in O(n) time, no iterations. Suitable for per-frame use.
+
 #pragma once
 #include <vector>
 #include <cmath>
 #include <algorithm>
-#include <iostream>
 
-// Proximal operator for the fidelity term
-inline double prox_tau(double v, double tau, double f) {
-    return (v + tau * f) / (1.0 + tau);
-}
+static inline std::vector<double>
+tv_denoise(const std::vector<double>& f, double lambda) {
+    const int n = (int)f.size();
+    if (n <= 1 || lambda <= 0.0) return f;
 
-// Function to compute the gradient (forward difference)
-inline double gradient(const std::vector<double>& u, int i) {
-    return u[i + 1] - u[i];
-}
+    std::vector<double> x(n);
 
-// Function to compute the divergence (backward difference)
-inline double divergence(const std::vector<double>& p, int i) {
-    return (i == 0 ? 0 : p[i - 1]) - p[i];
-}
+    // Variables follow the notation of:
+    // L. Condat, "A direct algorithm for 1D total variation denoising," IEEE SPL, 2013.
+    int k = 0;       // current index
+    int k0 = 0;      // beginning of the current segment
+    double umin = lambda;
+    double umax = -lambda;
+    double vmin = f[0] - lambda;
+    double vmax = f[0] + lambda;
 
-// Total variation denoising using primal-dual algorithm
-std::vector<double> tv_denoise(const std::vector<double>& f, double lambda, int max_iter = 100, double tau = 0.1, double sigma = 0.1) {
-    int n = f.size();
-    if (n < 2)
-    {
-		return {};
+    // The "taut string" like sweeping
+    for (int i = 1; i < n; ++i) {
+        double val = f[i];
+        // Extend the lower and upper piecewise-linear envelopes
+        umin += val - vmin;
+        umax += val - vmax;
+
+        if (umin <= -lambda) {
+            // Lower envelope violated: output a segment at (vmin)
+            for (; k0 <= k; ++k0) x[k0] = vmin;
+            k = k0 = i - 1;
+            vmin = f[k0];
+            vmax = f[k0] + 2.0 * lambda;
+            umin = lambda;
+            umax = -lambda;
+        }
+        else if (umax >= lambda) {
+            // Upper envelope violated: output a segment at (vmax)
+            for (; k0 <= k; ++k0) x[k0] = vmax;
+            k = k0 = i - 1;
+            vmax = f[k0];
+            vmin = f[k0] - 2.0 * lambda;
+            umin = lambda;
+            umax = -lambda;
+        }
+        else {
+            // No violation: keep envelopes tight
+            if (umin >= lambda) {
+                vmin += (umin - lambda) / (i - k0 + 1);
+                umin = lambda;
+            }
+            if (umax <= -lambda) {
+                vmax += (umax + lambda) / (i - k0 + 1);
+                umax = -lambda;
+            }
+        }
+        ++k;
     }
-    // Initialize primal (u) and dual (p) variables
-    std::vector<double> u(f);         // Denoised signal, initially set to the noisy signal
-    std::vector<double> u_bar(f);     // Auxiliary variable for u
-    std::vector<double> p(n - 1, 0);  // Dual variable p
 
-    // Main iteration loop
-    for (int k = 0; k < max_iter; ++k) {
-        // apply boundary conditions
-		u[0] = f[0];
-		u[n - 1] = f[n - 1];
-        // Update dual variable p
-        for (int i = 0; i < n - 1; ++i) {
-            double grad_u_bar = gradient(u_bar, i);  // Compute the gradient of u_bar
-            p[i] = (p[i] + sigma * grad_u_bar) / (1.0 + sigma * std::abs(grad_u_bar));  // Project onto |p| <= 1
-        }
-
-        // Update primal variable u
-        for (int i = 0; i < n; ++i) {
-            double div_p = (i < n - 1) ? divergence(p, i) : -p[i - 1];  // Compute the divergence of p
-            u[i] = prox_tau(u[i] - tau * div_p, tau, f[i]);  // Proximal update for u
-        }
-
-        // Over-relaxation step
-        for (int i = 0; i < n; ++i) {
-            u_bar[i] = 2 * u[i] - u_bar[i];  // Update u_bar
-        }
-    }
-	u[u.size()-1] = u[u.size()-2]; // set last element to second to last element as it is jumping around too much
-    return u;  // Return the denoised signal
+    // Final flush: choose any value in [vmin, vmax] (they’re within 2*lambda)
+    double v = 0.5 * (vmin + vmax);
+    for (; k0 < n; ++k0) x[k0] = v;
+    return x;
 }

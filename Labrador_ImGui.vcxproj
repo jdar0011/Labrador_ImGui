@@ -192,6 +192,7 @@ xcopy /y /d ".\libs\fftw\libfftw3-3.dll" "$(OutDir)"</Command>
     <ClInclude Include="misc\cpp\imgui_stdlib.h" />
     <ClInclude Include="misc\single_file\imgui_single_file.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="src\AnalysisToolsWidget.hpp" />
     <ClInclude Include="src\App.hpp" />
     <ClInclude Include="src\AppBase.hpp" />
     <ClInclude Include="src\ControlWidget.hpp" />

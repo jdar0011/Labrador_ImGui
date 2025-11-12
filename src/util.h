@@ -146,10 +146,21 @@ const std::map<int, maps::ChannelTriggerPair> ComboItemToChannelTriggerPair = {
 };
 }
 
+enum PlotColour {
+	Plot_Red,
+	Plot_Green,
+	Plot_Blue,
+	Plot_Yellow,
+	Plot_Cyan,
+	Plot_Magenta,
+	Plot_White
+};
+
 std::string getResourcePath(const std::string& filename);
 void init_constants();
 void PreviewStyle();
-void SetControlWidgetStyle(const float ac[3]);
+void BeginControlWidgetStyle(const float ac[3]);
+void EndControlWidgetStyle();
 void SetGlobalStyle();
 ImU32 colourConvert(const float c[3], float alpha = 1.0f);
 void replace_all(
@@ -159,9 +170,10 @@ std::string NumToString(double num,int precision);
 int MetricFormatter(double value, char* buff, int size, void* data);
 void ToggleTriggerTypeComboChannel(int* ComboCurrentItem);
 void ToggleTriggerTypeComboType(int* ComboCurrentItem);
-std::vector<double> EvalUserExpression(std::string expr, std::vector<double> osc1, std::vector<double> osc2, bool& parse_success);
+std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2, std::vector<double> time, bool& parse_success);
 bool SliderFloatPercent(const char* label, float* v01,
 	const char* fmt = "%.0f%%",
 	ImGuiSliderFlags flags = 0);
 std::vector<float> linspace(float x_min, float x_max, int resolution);
+ImVec4 GetPlotColour(PlotColour c);
 #endif

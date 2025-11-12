@@ -45,7 +45,7 @@ public:
 	/// </summary>
 	virtual void Render()
 	{
-		SetControlWidgetStyle(accentColour);
+		BeginControlWidgetStyle(accentColour);
 
 		ImU32 acol = ImGui::ColorConvertFloat4ToU32(
 		    ImVec4(accentColour[0], accentColour[1], accentColour[2], 1));
@@ -95,6 +95,8 @@ public:
 		ImGui::Dummy(ImVec2(0, 6.0f));
 
 		WidgetHeight = p2.y - p1.y;
+
+		EndControlWidgetStyle();
 	}
 
 	float GetHeight()

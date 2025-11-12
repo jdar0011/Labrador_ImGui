@@ -64,7 +64,7 @@ public:
     bool AutoTriggerHysteresisToggle = true;
     bool HysteresisDisplayOptionEnabled = false;
 
-    // ===== Math Mode (moved back in) =====
+    // ===== Math Mode =====
     struct MathControls
     {
         std::string Text{};
@@ -201,7 +201,7 @@ public:
             OSC2ClipboardCopyNext,
             OSC2WritePath, FileExtension);
 
-        // --- Math Mode (restored) ---
+        // --- Math Mode  ---
         ImGui::SeparatorText("Math Mode");
         ImGui::Text("On");
         ImGui::SameLine();
@@ -326,8 +326,9 @@ private:
         {"pow", constants::FunctionColour,  "pow(x,y) (x^y)", true, true, true},
 
         // Signals
-        {"osc1", ImU32(colourConvert(constants::OSC1_ACCENT)), "oscilloscope signal 1", true, true, true},
-        {"osc2", ImU32(colourConvert(constants::OSC2_ACCENT)), "oscilloscope signal 2", true, true, true},
+        {"osc1", ImU32(OSC1Colour), "oscilloscope signal 1", true, true, true},
+        {"osc2", ImU32(OSC2Colour), "oscilloscope signal 2", true, true, true},
+		{"t",   ImU32(MathColour),  "time variable",            true, true, true},
 
         // Constants
         {"pi", constants::NumberColour, "3.14159...", true, true, true},
@@ -342,8 +343,8 @@ private:
         {"/",  constants::SymbolColour, "divide",     false, true, false},
         {"%",  constants::SymbolColour, "modulus",    false, true, false},
         {"^",  constants::SymbolColour, "power",      false, true, false},
-        {"(",  constants::SymbolColour, "open paren", false, false, false},
-        {")",  constants::SymbolColour, "close paren",false, false, false},
+        {"(",  constants::SymbolColour, "", false, false, false},
+        {")",  constants::SymbolColour, "",false, false, false},
         {">",  constants::SymbolColour, "greater than", false, true, false},
         {"<",  constants::SymbolColour, "less than",    false, true, false},
         {">=", constants::SymbolColour, "greater than or equal", false, true, false},

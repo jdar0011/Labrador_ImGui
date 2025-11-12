@@ -194,15 +194,25 @@ void PreviewStyle()
 /// Defines the style of the general control widget
 /// </summary>
 /// <param name="ac">Accent colour (RGB 0..1) </param>
-void SetControlWidgetStyle(const float ac[3])
-{
-	ImVec4* colors = ImGui::GetStyle().Colors;
-	colors[ImGuiCol_FrameBg] = ImVec4(ac[0], ac[1], ac[2], 0.5f);
-	colors[ImGuiCol_FrameBgHovered] = ImVec4(ac[0], ac[1], ac[2], 0.65f);
-	colors[ImGuiCol_FrameBgActive] = ImVec4(ac[0], ac[1], ac[2], 1.0f);
-	colors[ImGuiCol_Button] = ImVec4(0, 0, 0, 0);
-	colors[ImGuiCol_HeaderHovered] = ImVec4(ac[0], ac[1], ac[2], 0.65f);
-	colors[ImGuiCol_HeaderActive] = ImVec4(ac[0], ac[1], ac[2], 1.0f);
+void BeginControlWidgetStyle(const float ac[3]) {
+	const ImVec4 accent(ac[0], ac[1], ac[2], 1.0f);
+
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(accent.x, accent.y, accent.z, 0.50f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(accent.x, accent.y, accent.z, 0.65f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(accent.x, accent.y, accent.z, 1.00f));
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+	ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(accent.x, accent.y, accent.z, 0.50f));
+	ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(accent.x, accent.y, accent.z, 0.65f));
+	ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(accent.x, accent.y, accent.z, 1.00f));
+	ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(accent.x * 0.75f, accent.y * 0.75f, accent.z * 0.75f, 1.00f));
+	ImGui::PushStyleColor(ImGuiCol_TabHovered, ImVec4(std::min(1.f, accent.x * 1.05f), std::min(1.f, accent.y * 1.05f), std::min(1.f, accent.z * 1.05f), 1.00f));
+	ImGui::PushStyleColor(ImGuiCol_TabActive, ImVec4(accent.x, accent.y, accent.z, 1.00f));
+	ImGui::PushStyleColor(ImGuiCol_TabUnfocused, ImVec4(accent.x * 0.60f, accent.y * 0.60f, accent.z * 0.60f, 1.00f));
+	ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImVec4(accent.x * 0.70f, accent.y * 0.70f, accent.z * 0.70f, 1.00f));
+}
+
+void EndControlWidgetStyle() {
+	ImGui::PopStyleColor(12);
 }
 
 ImU32 colourConvert(const float c[3], float alpha)
@@ -277,7 +287,7 @@ void ToggleTriggerTypeComboType(int* ComboCurrentItem)
 		*ComboCurrentItem = 2;
 	}
 }
-std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2, bool &parse_success)
+std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2, std::vector<double> time, bool &parse_success)
 {
 	int N = osc1.size() > osc2.size() ? osc1.size() : osc2.size();
 	std::vector<double> result(N);
@@ -285,6 +295,7 @@ std::vector<double> EvalUserExpression(std::string user_text, std::vector<double
 	sym.add_vector("osc1", osc1);
 	sym.add_vector("osc2", osc2);
 	sym.add_vector("result", result);
+	sym.add_vector("t", time);
 	sym.add_constants();
 	std::string src = "result := (" + user_text + ");";
 	exprtk::expression<double> expr;
@@ -324,6 +335,18 @@ std::vector<float> linspace(float x_min, float x_max, int resolution) {
     return result;
 }
 
+
+ImVec4 GetPlotColour(PlotColour c) {
+	switch (c) {
+	case Plot_Red:     return ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
+	case Plot_Green:   return ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
+	case Plot_Blue:    return ImVec4(0.0f, 0.5f, 1.0f, 1.0f);
+	case Plot_Yellow:  return ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
+	case Plot_Cyan:    return ImVec4(0.0f, 1.0f, 1.0f, 1.0f);
+	case Plot_Magenta: return ImVec4(1.0f, 0.0f, 1.0f, 1.0f);
+	default:           return ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+}
 
 
 

@@ -473,60 +473,48 @@ public:
 		fftw_destroy_plan(plan);
 
 		// ---- 5) Scale to per-bin Vrms (DSO behaviour) ----
-		// For a bin-centered sine with peak amplitude A_pk:
-		//   |X[k]| ~ sum(w) * A_pk / 2  (FFTW forward is unscaled)
-		// Single-sided interior bins doubled (�2); DC/Nyquist are not.
-		// Vrms = A_pk / sqrt(2)  =>  Vrms = |X[k]| * (s / sum(w)) / sqrt(2)
+	// For a bin-centered sine with peak amplitude A_pk:
+	//   |X[k]| ~ sum(w) * A_pk / 2  (FFTW forward is unscaled)
+	// Single-sided interior bins doubled (×2); DC/Nyquist are not.
+	// Vrms = A_pk / sqrt(2)  =>  Vrms = |X[k]| * (s / sum(w)) / sqrt(2)
 		const double root2 = std::sqrt(2.0);
 
-		spectrum_data.resize(Nb); // store per-bin Vrms (Volts)
+		spectrum_data.resize(Nb);         // per-bin Vrms (Volts)
+		spectrum_data_db_v.resize(Nb);    // per-bin dBV
+		spectrum_data_db_m.resize(Nb);    // per-bin dBm (re 1 mW into spectrum_load_ohms)
+
 		for (size_t k = 0; k < Nb; ++k) {
 			const double re = out[k][0];
 			const double im = out[k][1];
 			const double mag = std::hypot(re, im);           // |X[k]|
 			const bool is_dc = (k == 0);
 			const bool is_nyq = (even && k == Nb - 1);
-			const double s = (is_dc || is_nyq) ? 1.0 : 2.0; // single-sided factor
-			const double vrms = (mag * (s * inv_sumw)) / root2;
+			const double s = (is_dc || is_nyq) ? 1.0 : 2.0;  // single-sided factor
+
+			const double vrms = (mag * (s * inv_sumw)) / root2; // per-bin Vrms
 			spectrum_data[k] = vrms;
+			spectrum_data_db_v[k] = vrms_to_dBV(vrms);
+			spectrum_data_db_m[k] = vrms_to_dBm(vrms, spectrum_load_ohms);
 		}
 
-		const double eps = 1e-30;
-		std::vector<double> db; db.reserve(spectrum_data.size());
-		for (double v : spectrum_data)
-			db.push_back(20.0 * std::log10(std::max(v, eps)));
-		spectrum_data_db = db;
+		fftw_free(out);
 
 		// NOTE:
-		// - 'spectrum_data' now holds per-bin Vrms (V), matching DSO FFT magnitude.
-		// - For dBV display in your plot: dBV = 20*log10(max(vrms, 1e-30)).
-		// - RBW to show in UI (optional): ENBW = Fs * (sum(w^2) / sum(w)^2).
-		//   For Rect, ENBW = deltaf; for Hann, ~ 1.5*deltaf.
+		// - 'spectrum_data'      : per-bin Vrms (V)
+		// - 'spectrum_data_db_v' : per-bin dBV (20*log10(Vrms))
+		// - 'spectrum_data_db_m' : per-bin dBm re 1 mW into spectrum_load_ohms
 	}
-	std::vector<double> GetSpectrumMag()
-	{
-		return spectrum_data;
-	}
-	std::vector<double> GetSpectrumMagdB()
-	{
-		return spectrum_data_db;
-	}
-	std::vector<double> GetSpectrumFreq()
-	{
-		return spectrum_freq;
-	}
-	std::vector<double>* GetSpectrumMag_p()
-	{
-		return &spectrum_data;
-	}
-	std::vector<double>* GetSpectrumMagdB_p()
-	{
-		return &spectrum_data_db;
-	}
-	std::vector<double>* GetSpectrumFreq_p()
-	{
-		return &spectrum_freq;
-	}
+	std::vector<double> GetSpectrumMag() { return spectrum_data; } // Vrms
+	std::vector<double> GetSpectrumMagdBV() { return spectrum_data_db_v; }
+	std::vector<double> GetSpectrumMagdBm() { return spectrum_data_db_m; }
+
+	std::vector<double> GetSpectrumFreq() { return spectrum_freq; }
+
+	std::vector<double>* GetSpectrumMag_p() { return &spectrum_data; } // Vrms
+	std::vector<double>* GetSpectrumMagdBV_p() { return &spectrum_data_db_v; }
+	std::vector<double>* GetSpectrumMagdBm_p() { return &spectrum_data_db_m; }
+	std::vector<double>* GetSpectrumFreq_p() { return &spectrum_freq; }
+
 
 	void ApplyFFT() //unused will remove
 	{
@@ -664,19 +652,16 @@ public:
 		std::vector<double> periodic_data;
 		periodic_data.assign(data.begin(), data.begin() + N);
 
-
+		// --- start timing ---
+		auto t_start = std::chrono::high_resolution_clock::now();
 		// You can tune lambda externally; 0.05–0.3 is a common sweet spot.
 		double lambda = 0.1;
 		std::vector<double> x = tv_denoise(periodic_data, lambda);   // denoised signal (length N expected)
 		if (x.size() != N) return NaN();
-
-		// ---- Tiny visualization block ----
-		if (ImPlot::BeginPlot("Denoised vs Original", ImVec2(-1, 0))) {
-			ImPlot::SetupAxes("Sample Index", "Amplitude", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-			ImPlot::PlotLine("Original", periodic_data.data(), (int)N);
-			ImPlot::PlotLine("Denoised", x.data(), (int)N);
-			ImPlot::EndPlot();
-		}
+		// --- end timing ---
+		auto t_end = std::chrono::high_resolution_clock::now();
+		double elapsed_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+		printf("Section took %.3f ms\n", elapsed_ms);
 
 		// ---- 2) MIDPOINT & HYSTERESIS FROM DENOISED + RESIDUAL NOISE ----
 		// Compute vmin, vmax from the denoised signal (more stable than raw).
@@ -885,9 +870,11 @@ private:
 	// spectrum analyser
 	std::vector<double> data_for_spectrum = {};
 	std::vector<double> time_for_spectrum = {};
-	std::vector<double> spectrum_data = {};
-	std::vector<double> spectrum_data_db = {};
+	std::vector<double> spectrum_data = {};      // per-bin Vrms (linear)
+	std::vector<double> spectrum_data_db_v = {}; // per-bin dBV
+	std::vector<double> spectrum_data_db_m = {}; // per-bin dBm
 	std::vector<double> spectrum_freq = {};
+	double spectrum_load_ohms = 50.0;           // dBm reference load
 	// frequency stuff
 	std::vector<double> raw_data = {};
 	std::vector<double> raw_time = {}; // time associated with raw_data
@@ -994,6 +981,16 @@ private:
 		a = std::fmod(a + 180.0, 360.0);
 		if (a < 0) a += 360.0;
 		return a - 180.0;
+	}
+	// Vrms -> dBV and dBm helpers
+	inline double vrms_to_dBV(double v) {
+		const double eps = 1e-30;
+		return 20.0 * std::log10(std::max(std::abs(v), eps)); // re 1 V
+	}
+	inline double vrms_to_dBm(double v, double R_ohm) {
+		const double eps = 1e-30;
+		double p_w = (v * v) / std::max(R_ohm, eps);           // P = V^2 / R
+		return 10.0 * std::log10(std::max(p_w, eps) / 1e-3); // re 1 mW
 	}
 };
 
