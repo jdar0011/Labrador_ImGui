@@ -122,6 +122,10 @@ public:
 		ImPlot::SetupAxisTicks(ImAxis_Y1, y_ticks, 2, y_labels);
 		ImPlot::SetupAxesLimits(preview_x_min, preview_x_max, y_min, y_max, ImPlotCond_Always);
 		ImPlot::PlotLine(("##" + label + "_plot_preview").c_str(), xs.data(), waveform.data(), xs.size());
+
+		ImPlot::Annotation(preview_x_min, y_max, ImVec4(0, 0, 0, 0), ImVec2(0, 0), true, "V");
+		ImPlot::Annotation(preview_x_max, y_min, ImVec4(0, 0, 0, 0), ImVec2(0, 0), true, "t (s)");
+
 		// ImPlot::PlotScatter(("##" + label + "_period_pnt").c_str(), key_points_x, key_points_y, 3);
 		// Plot half a waveform before and after preview 
 		// ImPlot::PlotLine(("##" + label + "_plot_preview_pre").c_str(),&preview[period-padding], padding+1, 1.0, (double) - padding);

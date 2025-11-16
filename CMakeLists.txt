@@ -2,7 +2,7 @@
 # Use Visual Studio .sln file on Windows.
 
 cmake_minimum_required(VERSION 4.1.1)
-project(LabradorImgui VERSION 1.0)
+project(LabraScope VERSION 1.0)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)

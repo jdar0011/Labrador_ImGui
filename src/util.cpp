@@ -136,6 +136,9 @@ void SetGlobalStyle()
 	colors[ImGuiCol_Header] = ImVec4(0.26f, 0.59f, 0.98f, 0.00f);
 	colors[ImGuiCol_HeaderHovered] = ImVec4(0.26f, 0.59f, 0.98f, 0.00f);
 	colors[ImGuiCol_HeaderActive] = ImVec4(0.26f, 0.59f, 0.98f, 0.00f);
+	colors[ImGuiCol_Tab] = ImVec4(0.06f, 0.06f, 0.06f, 1.00f);
+	colors[ImGuiCol_TabActive] = ImVec4(0.4f, 0.4f, 0.4f, 1.00f);
+	colors[ImGuiCol_TabHovered] = ImVec4(0.45f, 0.45f, 0.45f, 1.00f);
 }
 
 /// <summary>
@@ -158,7 +161,7 @@ void PreviewStyle()
 	//colors[ImPlotCol_LegendBorder] = ImVec4(0.80f, 0.81f, 0.85f, 1.00f);
 	//colors[ImPlotCol_LegendText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
 	//colors[ImPlotCol_TitleText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
-	//colors[ImPlotCol_InlayText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+	colors[ImPlotCol_InlayText] = ImVec4(1.0f, 1.0f, 1.0f, 0.5f);
 	//colors[ImPlotCol_AxisText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
 	colors[ImPlotCol_AxisGrid] = ImVec4(1.0f, 1.0f, 1.0f, 0.9f);
 	//colors[ImPlotCol_AxisBgHovered] = ImVec4(0.92f, 0.92f, 0.95f, 1.00f);
@@ -204,15 +207,15 @@ void BeginControlWidgetStyle(const float ac[3]) {
 	ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(accent.x, accent.y, accent.z, 0.50f));
 	ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(accent.x, accent.y, accent.z, 0.65f));
 	ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(accent.x, accent.y, accent.z, 1.00f));
-	ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(accent.x * 0.75f, accent.y * 0.75f, accent.z * 0.75f, 1.00f));
-	ImGui::PushStyleColor(ImGuiCol_TabHovered, ImVec4(std::min(1.f, accent.x * 1.05f), std::min(1.f, accent.y * 1.05f), std::min(1.f, accent.z * 1.05f), 1.00f));
-	ImGui::PushStyleColor(ImGuiCol_TabActive, ImVec4(accent.x, accent.y, accent.z, 1.00f));
-	ImGui::PushStyleColor(ImGuiCol_TabUnfocused, ImVec4(accent.x * 0.60f, accent.y * 0.60f, accent.z * 0.60f, 1.00f));
-	ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImVec4(accent.x * 0.70f, accent.y * 0.70f, accent.z * 0.70f, 1.00f));
+	// ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(accent.x * 0.75f, accent.y * 0.75f, accent.z * 0.75f, 1.00f));
+	// ImGui::PushStyleColor(ImGuiCol_TabHovered, ImVec4(std::min(1.f, accent.x * 1.05f), std::min(1.f, accent.y * 1.05f), std::min(1.f, accent.z * 1.05f), 1.00f));
+	// ImGui::PushStyleColor(ImGuiCol_TabActive, ImVec4(accent.x, accent.y, accent.z, 1.00f));
+	// ImGui::PushStyleColor(ImGuiCol_TabUnfocused, ImVec4(accent.x * 0.60f, accent.y * 0.60f, accent.z * 0.60f, 1.00f));
+	// ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImVec4(accent.x * 0.70f, accent.y * 0.70f, accent.z * 0.70f, 1.00f));
 }
 
 void EndControlWidgetStyle() {
-	ImGui::PopStyleColor(12);
+	ImGui::PopStyleColor(7);
 }
 
 ImU32 colourConvert(const float c[3], float alpha)

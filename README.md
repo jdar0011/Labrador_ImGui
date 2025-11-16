@@ -148,6 +148,41 @@ chmod +x package_mac.sh
   - sin(x)    cos(x)    tan(x)
   - asin(x)   acos(x)   atan(x)
   - sinh(x)   cosh(x)   tanh(x)
+
+### Analysis Tools
+
+#### General
+
+- Analysis tools are displayed in a secondary plot underneath the oscilloscope plot window. 
+- Toggle ON/OFF via the switch. 
+- Select the tool via the tabs under the switch. Only the active tool is displayed.
+
+#### Spectrum Analyser
+
+- **Start Acquiring**: Acquire oscilloscope data to pass through FFT algorithm. Results are displayed after data acquisition has been completed.
+- **Auto Fit**: Automatically set the plot scale to best show the data.
+- **Display**: Toggle the display of either oscilloscope channel. 
+- **Advanced Options**:
+  - **Sample Rate**: How many times per second the oscilloscope is sampled.
+  - **Max Time Window**: Duration of acquisition.
+  - **Windowing Function**: 
+  - **Vertical Units**: 
+  - **Acquisition Mode**: 
+
+#### Network Analyser
+
+- **Acquire**: Commence frequency sweep.
+- **Auto Fit**: Automatically set the plot scale to best show the data.
+- **Phase**: Display the phase plot.
+- **Stimulus Generator**: Signal Generator that is the input for the network.
+- **Reference (Input) Channel**: Oscilloscope channel reading the network input.
+- **Reference (Output) Channel**: Oscilloscope channel reading the network output.
+- **Frequency Range**: Select range for frequency sweep.
+- **Advanced Options**:
+  - **Vertical Units**: 
+  - **Number of Data Points**: Number of differenct frequencies to test.
+  - **Point Spacing**: Logarithmic - higher freqency inputs are more spaced apart. Linear - evenly spaced frequncy inputs.
+
 ### Plot Window
 
 #### Controls
