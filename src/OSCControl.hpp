@@ -29,7 +29,7 @@ public:
     int  OSC2WritePathComboCurrentItem = 0;
     bool OSC1ClipboardCopyNext = false;  // PlotWidget can poll these each frame
     bool OSC2ClipboardCopyNext = false;
-    bool OSC1ClipboardCopied = false;    // request -> “Copied!” flash
+    bool OSC1ClipboardCopied = false;    // request -> ï¿½Copied!ï¿½ flash
     bool OSC2ClipboardCopied = false;
     const nfdchar_t* FileExtension = "csv";
 
@@ -202,18 +202,24 @@ public:
             OSC2WritePath, FileExtension);
 
         // --- Math Mode  ---
-        ImGui::SeparatorText("Math Mode");
-        ImGui::Text("On");
-        ImGui::SameLine();
+        ImGui::SeparatorText("Math");
+        // ImGui::Text("Display");
+        // ImGui::SameLine();
+		ImGui::Text(" OFF");
+		ImGui::SameLine();
         ToggleSwitch((label + "Math1_toggle").c_str(), &MathControls1.On, ImU32(MathColour));
+        ImGui::SameLine();
+		ImGui::Text("ON");
 
-        ImGui::TextColored(MathColour, "Math =");
+        ImGui::Text("Expression");
         ImGui::SameLine();
         MiniHLInput("Expression",
             MathControls1.Text,
             rules,
             /*text*/ ImGui::GetColorU32(ImGuiCol_Text),
-            /*bg  */ ImGui::GetColorU32(ImGuiCol_FrameBg));
+            /*bg  */ ImGui::GetColorU32(ImGuiCol_FrameBg),
+            "eg. osc1 + osc2,  sin(2*pi*100*t)"
+        );
 
         if (!MathControls1.Parsable && MathControls1.Text.length() > 0)
         {

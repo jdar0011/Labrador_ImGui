@@ -156,7 +156,7 @@ class AppBase
 #endif
         // Create window with graphics context
 
-        window = glfwCreateWindow(window_width, window_height, "Labrador Controller", nullptr, nullptr);
+        window = glfwCreateWindow(window_width, window_height, "LabraScope", nullptr, nullptr);
         if (window == NULL)
             std::exit(1);
 

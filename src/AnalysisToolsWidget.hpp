@@ -68,6 +68,7 @@ public:
     int CurrentTab = 0;
     ImColor OSC1Colour = colourConvert(constants::OSC1_ACCENT);
     ImColor OSC2Colour = colourConvert(constants::OSC2_ACCENT);
+    const float* GenColour = constants::GEN_ACCENT;
 
 	AnalysisToolsWidget(std::string label, ImVec2 size, const float* borderColor)
 		: ControlWidget(label, size, borderColor)
@@ -79,9 +80,17 @@ public:
 	/// </summary>
 	void renderControl() override
 	{
-        ImGui::Text("Display");
+        ImGui::Text(" OFF");
 		ImGui::SameLine();
-		ToggleSwitch("##AnalysisToolsDisplay", &ToolsOn, ImU32(colourConvert(accentColour)));
+		ToggleSwitch("##AnalysisToolsDisplay", &ToolsOn, ImU32(colourConvert(GenColour)));
+        ImGui::SameLine();
+        ImGui::Text("ON");
+
+        if (ToolsOn) {
+            ImGui::SameLine();
+            ImGui::TextColored(constants::GRAY_TEXT, "  Active tab will be displayed:");
+        }
+
 		if (ImGui::BeginTabBar("MyTabBar"))
 		{
 			if (ImGui::BeginTabItem("Spectrum Analyser"))
@@ -208,7 +217,7 @@ public:
                 
                 ImGui::SeparatorText("Options");
                 ImGui::Text("Phase"); ImGui::SameLine();
-                ToggleSwitch("##NetworkAnalyserPhaseOn", &NA.PhaseOn, ImU32(colourConvert(accentColour)));
+                ToggleSwitch("##NetworkAnalyserPhaseOn", &NA.PhaseOn, ImU32(colourConvert(GenColour)));
 
                 ImGui::Text("Stimulus Generator"); ImGui::SameLine();
                 ImGui::SetNextItemWidth(NA.ComboBoxWidth);

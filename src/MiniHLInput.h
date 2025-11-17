@@ -148,7 +148,8 @@ static bool MiniHLInput(const char* label,
     std::string& buffer,
     const std::vector<MiniHLRule>& rules,
     ImU32 default_text_color = 0,      // 0 = use ImGuiCol_Text
-    ImU32 bg_color = 0)                // 0 = leave as is
+    ImU32 bg_color = 0, // 0 = leave as is
+    std::string hint = "")                
 {
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (window->SkipItems) return false;
@@ -168,7 +169,7 @@ static bool MiniHLInput(const char* label,
     tmp = buffer; // InputText edits 'tmp'; we copy back if changed
     ImGuiInputTextFlags flags = ImGuiInputTextFlags_CallbackAlways | ImGuiInputTextFlags_AutoSelectAll;
     // Render the input
-    changed = ImGui::InputTextWithHint("##mini_hl", "eg. osc1+osc2", &tmp, flags);
+    changed = ImGui::InputTextWithHint("##mini_hl", hint.c_str(), &tmp, flags);
 
     ImGuiID id = ImGui::GetItemID();
     ImRect  r = ImRect(ImGui::GetItemRectMin(),ImGui::GetItemRectMax());

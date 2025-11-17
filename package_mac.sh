@@ -2,7 +2,7 @@
 set -e
 
 # CONFIG
-APP_NAME="LabradorImgui"
+APP_NAME="LabraScope"
 BUILD_DIR="build"
 APP_BUNDLE_DIR="mac_appbundle/${APP_NAME}.app"
 CONTENTS_DIR="${APP_BUNDLE_DIR}/Contents"
