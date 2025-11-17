@@ -63,6 +63,7 @@ public:
     bool SignalPropertiesToggle = false;
     bool AutoTriggerHysteresisToggle = true;
     bool HysteresisDisplayOptionEnabled = false;
+	bool SeparateYAxisToggle = false;
 
     // ===== Math Mode =====
     struct MathControls
@@ -131,6 +132,11 @@ public:
 
             ImGui::TableNextColumn(); ImGui::Text("Signal Properties");
             ImGui::TableNextColumn(); ToggleSwitch((label + "sig_prop_toggle").c_str(), &SignalPropertiesToggle, GenColour);
+
+            ImGui::TableNextColumn(); ImGui::TableNextColumn();
+
+            ImGui::TableNextColumn(); ImGui::Text("Separate Y-Axes");
+            ImGui::TableNextColumn(); ToggleSwitch((label + "sep_y-axis_toggle").c_str(), &SeparateYAxisToggle, GenColour);
 
             ImGui::EndTable();
         }

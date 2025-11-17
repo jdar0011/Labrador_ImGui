@@ -169,238 +169,274 @@ public:
 			}
 		}
 
+		
+		
 
-
+		ShowAxisLimitsTestWindow();
 		
 		ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(255, 255, 255, 255));
 		UpdateOscData();
 		std::vector<double> analog_data_osc1 = OSC1Data.GetData();
 		std::vector<double> analog_data_osc2 = OSC2Data.GetData();
 		
-		ImPlot::SetNextAxesLimits(init_time_range_lower, init_time_range_upper,
-		    init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Once);
-		if (next_resetX)
-		{
+		// ================== Oscilloscopes (Y2: no SetNext*, only conditional SetupAxisLimits; manual zoom preserved; limits remembered) ==================
+		static bool   next_autofitY1 = false, next_autofitY2 = false;
+		static double next_autofitY1_min = 0.0, next_autofitY1_max = 0.0;
+		static double next_autofitY2_min = 0.0, next_autofitY2_max = 0.0;
+
+		static bool   prev_separate = false;
+		const  bool   separate = osc_control->SeparateYAxisToggle;
+		const  bool   separate_rose = (separate && !prev_separate);
+
+		// Persist/restore Y2 limits across toggles
+		static bool   y2_saved_valid = false;
+		static double y2_saved_lo = 0.0;
+		static double y2_saved_hi = 0.0;
+
+		// Never use SetNext* for Y2; apply inside BeginPlot when needed
+		static bool   pending_resetY2 = false;
+
+
+
+		// -------------------- PRECOMPUTE (no ImPlot calls here) --------------------
+		if (osc_control->AutofitX) {
+			double T1 = OSC1Data.GetTimeBetweenTriggers();
+			double T2 = OSC2Data.GetTimeBetweenTriggers();
+			double T = init_time_range_upper;
+			if (osc_control->DisplayCheckOSC1 && !osc_control->DisplayCheckOSC2) T = T1;
+			else if (osc_control->DisplayCheckOSC2 && !osc_control->DisplayCheckOSC1) T = T2;
+			else if (osc_control->DisplayCheckOSC1 && osc_control->DisplayCheckOSC2) T = (T1 > T2 ? T1 : T2);
+			T = (T == 0 ? init_time_range_upper : T) * 3.0;
+			next_autofitX_min = -0.5 * T;
+			next_autofitX_max = 0.5 * T;
+			next_autofitX = true;
+			osc_control->AutofitX = false; // one-shot
+		}
+
+		const double kInnerFrac = 0.30;
+		auto fit_inner = [kInnerFrac](bool shown, double vmin, double vmax,
+			double lo_init, double hi_init,
+			double& lo_out, double& hi_out) {
+			if (!shown) { lo_out = lo_init; hi_out = hi_init; return; }
+			double range = vmax - vmin;
+			if (range <= 0.0) { lo_out = vmin - 0.5; hi_out = vmax + 0.5; return; }
+			double pad = 0.5 * range * (1.0 / kInnerFrac - 1.0);
+			lo_out = vmin - pad; hi_out = vmax + pad;
+			if (lo_out == hi_out) { lo_out -= 0.5; hi_out += 0.5; }
+		};
+
+		bool   apply_y1_fit = false, apply_y2_fit = false;
+		double y1_lo = init_voltage_range_lower, y1_hi = init_voltage_range_upper;
+		double y2_lo = init_voltage_range_lower, y2_hi = init_voltage_range_upper;
+
+		if (osc_control->AutofitY) {
+			double o1_min = DBL_MAX, o1_max = -DBL_MAX;
+			double o2_min = DBL_MAX, o2_max = -DBL_MAX;
+			if (osc_control->DisplayCheckOSC1) { o1_max = OSC1Data.GetDataMax(); o1_min = OSC1Data.GetDataMin(); }
+			if (osc_control->DisplayCheckOSC2) { o2_max = OSC2Data.GetDataMax(); o2_min = OSC2Data.GetDataMin(); }
+
+			if (separate) {
+				fit_inner(osc_control->DisplayCheckOSC1, o1_min, o1_max,
+					init_voltage_range_lower, init_voltage_range_upper, y1_lo, y1_hi);
+				fit_inner(osc_control->DisplayCheckOSC2, o2_min, o2_max,
+					init_voltage_range_lower, init_voltage_range_upper, y2_lo, y2_hi);
+				apply_y1_fit = true;
+				apply_y2_fit = true;
+			}
+			else {
+				const bool any = (osc_control->DisplayCheckOSC1 || osc_control->DisplayCheckOSC2);
+				double g_min = any ? std::min(o1_min, o2_min) : init_voltage_range_lower;
+				double g_max = any ? std::max(o1_max, o2_max) : init_voltage_range_upper;
+				fit_inner(any, g_min, g_max,
+					init_voltage_range_lower, init_voltage_range_upper, y1_lo, y1_hi);
+				apply_y1_fit = true;
+			}
+			osc_control->AutofitY = false; // one-shot
+		}
+
+		// -------------------- PRE-PLOT SetNext* (X1/Y1 ONLY) --------------------
+		if (next_resetX) {
 			ImPlot::SetNextAxisLimits(ImAxis_X1, init_time_range_lower, init_time_range_upper, ImPlotCond_Always);
 			next_resetX = false;
 		}
-		if (next_resetY)
-		{
+		if (next_resetY) {
 			ImPlot::SetNextAxisLimits(ImAxis_Y1, init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Always);
+			pending_resetY2 = separate; // Y2 handled inside BeginPlot
 			next_resetY = false;
 		}
-		if (next_autofitX)
-		{
+		if (next_autofitX) {
 			ImPlot::SetNextAxisLimits(ImAxis_X1, next_autofitX_min, next_autofitX_max, ImPlotCond_Always);
 			next_autofitX = false;
 		}
-		if (next_autofitY)
-		{
-			ImPlot::SetNextAxisLimits(ImAxis_Y1, next_autofitY_min, next_autofitY_max, ImPlotCond_Always);
-			next_autofitY = false;
+		// If combined, apply Y1 autofit pre-plot; if separate, we’ll apply Y1 in-plot so both snap same frame
+		if (apply_y1_fit && !separate) {
+			ImPlot::SetNextAxisLimits(ImAxis_Y1, y1_lo, y1_hi, ImPlotCond_Always);
 		}
 
-		// --- before BeginPlot ---
 		ImPlotFlags base_plot_flags = ImPlotFlags_NoFrame | ImPlotFlags_NoLegend | ImPlotFlags_NoMenus;
-
 		ImPlotFlags plot_flags = base_plot_flags;
+		if (trig_dragging) plot_flags |= ImPlotFlags_NoInputs;
 
-		if (trig_dragging) {
-			// Option A (strict): block all plot inputs (pan, zoom, box select, etc.)
-			plot_flags |= ImPlotFlags_NoInputs;
-
-		}
 		if (ImPlot::BeginPlot("##Oscilloscopes", plot_size, plot_flags))
 		{
-			// No Labels for plot
-			ImPlot::SetupAxes("", "", ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
-			// Ensure plot cannot be expanded larger than the size of the buffer
+			// ---------- SETUP PHASE (no locks yet) ----------
+			ImPlot::SetupAxes("Time", "Osc1", ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
+			if (separate) {
+				ImPlot::SetupAxis(ImAxis_Y2, "Osc2", ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_AuxDefault);
+			}
+
+			// Primary seeds (Once)
+			ImPlot::SetupAxisLimits(ImAxis_X1, init_time_range_lower, init_time_range_upper, ImPlotCond_Once);
+			ImPlot::SetupAxisLimits(ImAxis_Y1, init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Once);
+
+			// --- Y2: apply ONLY when needed; otherwise leave Y2 alone for manual control ---
+			if (separate) {
+				const bool need_apply_y2 =
+					separate_rose ||   // first time toggled ON this session
+					pending_resetY2 ||   // explicit reset
+					apply_y2_fit;             // this-frame AutofitY
+
+				if (need_apply_y2) {
+					double lo = 0.0, hi = 0.0;
+
+					if (apply_y2_fit) {
+						lo = y2_lo; hi = y2_hi;
+						// remember the fitted view
+						y2_saved_lo = lo; y2_saved_hi = hi; y2_saved_valid = true;
+					}
+					else if (pending_resetY2) {
+						lo = init_voltage_range_lower;
+						hi = init_voltage_range_upper;
+						pending_resetY2 = false;
+					}
+					else /* separate_rose only */ {
+						if (y2_saved_valid) { lo = y2_saved_lo; hi = y2_saved_hi; }
+						else { lo = init_voltage_range_lower; hi = init_voltage_range_upper; }
+					}
+
+					ImPlot::SetupAxisLimits(ImAxis_Y2, lo, hi, ImPlotCond_Always);
+				}
+				// else: do not touch Y2 this frame → manual pan/zoom is preserved
+			}
+
+			// If separated and we computed Y1 fit, apply it here so both snap same frame
+			if (separate && apply_y1_fit) {
+				ImPlot::SetupAxisLimits(ImAxis_Y1, y1_lo, y1_hi, ImPlotCond_Always);
+			}
+
+			// Constraints/formatting
 			ImPlot::SetupAxisZoomConstraints(ImAxis_X1, 0, 60);
 			ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, -20, 20);
-			// --- Double-click to reset plot limits ---
-			// Setup Axis to show units
+			if (separate) ImPlot::SetupAxisLimitsConstraints(ImAxis_Y2, -20, 20);
+
 			ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"s");
 			ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
-			if (ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-			{
-				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl))
-				{
-					next_resetX = true;
-					next_resetY = true;
-				}
-				else
-				{
-					osc_control->AutofitX = true;
-					osc_control->AutofitY = true;
-				}
+			if (separate) ImPlot::SetupAxisFormat(ImAxis_Y2, MetricFormatter, (void*)"V");
 
+			// ---- Axis coloring ----
+			const ImVec4 white = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+			if (separate) {
+				ImPlot::PushStyleColor(ImPlotCol_AxisText, osc_control->OSC1Colour.Value);
+				ImPlot::PushStyleColor(ImPlotCol_AxisTick, osc_control->OSC1Colour.Value);
+				ImPlot::SetupAxis(ImAxis_Y1, "Osc1", ImPlotAxisFlags_NoLabel);
+				ImPlot::PopStyleColor(2);
+
+				ImPlot::PushStyleColor(ImPlotCol_AxisText, osc_control->OSC2Colour.Value);
+				ImPlot::PushStyleColor(ImPlotCol_AxisTick, osc_control->OSC2Colour.Value);
+				ImPlot::SetupAxis(ImAxis_Y2, "Osc2", ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_AuxDefault);
+				ImPlot::PopStyleColor(2);
 			}
-			if (ImPlot::IsAxisHovered(ImAxis_X1) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-			{
-				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl))
-				{
-					next_resetX = true;
-				}
-				else
-				{
-					osc_control->AutofitX = true;
-				}
+			else {
+				ImPlot::PushStyleColor(ImPlotCol_AxisText, white);
+				ImPlot::PushStyleColor(ImPlotCol_AxisTick, white);
+				ImPlot::SetupAxis(ImAxis_Y1, "Osc1", ImPlotAxisFlags_NoLabel);
+				ImPlot::PopStyleColor(2);
 			}
-			if (ImPlot::IsAxisHovered(ImAxis_Y1) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-			{
-				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl))
-				{
-					next_resetY = true;
-				}
-				else
-				{
-					osc_control->AutofitY = true;
-				}
+
+			// ---------- Interaction flags ----------
+			if (ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) { next_resetX = true; next_resetY = true; }
+				else { osc_control->AutofitX = true; osc_control->AutofitY = true; }
 			}
-			// Autofit X so that 3 periods occur in a time window
-			// If there are 2 oscs visible use the one with the larger period
-			// If none are visible, reset to default
-			if (osc_control->AutofitX)
-			{
-				double T_osc1 = OSC1Data.GetTimeBetweenTriggers();
-				double T_osc2 = OSC2Data.GetTimeBetweenTriggers();
-				double T = init_time_range_upper;
-				if (osc_control->DisplayCheckOSC1 && !osc_control->DisplayCheckOSC2)
-				{
-					T = T_osc1;
-					T *= 3;
-				}
-				else if (osc_control->DisplayCheckOSC2 && !osc_control->DisplayCheckOSC1)
-				{
-					T = T_osc2;
-					T *= 3;
-				}
-				else if (osc_control->DisplayCheckOSC2 && osc_control->DisplayCheckOSC1)
-				{
-					T = T_osc1 > T_osc2 ? T_osc1 : T_osc2;
-					T *= 3;
-				}
-				else if (!osc_control->DisplayCheckOSC2 && !osc_control->DisplayCheckOSC1)
-				{
-					T = init_time_range_upper;
-				}
-				// if no data, 0 period, set to default range
-				T = T == 0 ? init_time_range_upper : T;
-				next_autofitX_min = -T / 2;
-				next_autofitX_max = T / 2;
-				next_autofitX = true;
+			if (ImPlot::IsAxisHovered(ImAxis_X1) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)) next_resetX = true;
+				else osc_control->AutofitX = true;
 			}
-			// Autofits Y
-			if (osc_control->AutofitY)
-			{
-				double osc1_max;
-				double osc2_max;
-				double osc1_min;
-				double osc2_min;
-				if (osc_control->DisplayCheckOSC1) // set to actual max and min only if the oscilloscope channel is visible
-				{
-					osc1_max = OSC1Data.GetDataMax();
-					osc1_min = OSC1Data.GetDataMin();
-				}
-				else // else set to opposite extremes so that it always loses on comparison
-				{
-					osc1_max = DBL_MIN;
-					osc1_min = DBL_MAX;
-				}
-				if (osc_control->DisplayCheckOSC2) // set to actual max and min only if the oscilloscope channel is visible
-				{
-					osc2_max = OSC2Data.GetDataMax();
-					osc2_min = OSC2Data.GetDataMin();
-				}
-				else // else set to opposite extremes so that it always loses on comparison
-				{
-					osc2_max = DBL_MIN;
-					osc2_min = DBL_MAX;
-				}
-				double osc_max = osc1_max > osc2_max ? osc1_max : osc2_max;
-				double osc_min = osc1_min < osc2_min ? osc1_min : osc2_min;
-				double osc_range = osc_max - osc_min;
-				double osc_frac = 0.3;
-				double pad = 0.5 * osc_range * (1 / osc_frac - 1);
-				// set to default
-				next_autofitY_min = init_voltage_range_lower;
-				next_autofitY_max = init_voltage_range_upper;
-				if (osc_control->DisplayCheckOSC1 || osc_control->DisplayCheckOSC2) // only autofit if there is visible data
-				{
-					next_autofitY_min = osc_min - pad;
-					next_autofitY_max = osc_max + pad;
-				}
-				next_autofitY = true;
+			if ((ImPlot::IsAxisHovered(ImAxis_Y1) || (separate && ImPlot::IsAxisHovered(ImAxis_Y2))) &&
+				ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)) next_resetY = true;
+				else osc_control->AutofitY = true;
 			}
-			// Plot oscilloscope 1 signal
+
+			// ---------- Items (locks setup) ----------
 			std::vector<double> time_osc1 = OSC1Data.GetTime();
-			if (osc_control->DisplayCheckOSC1)
-			{
-				ImPlot::SetNextLineStyle(osc_control->OSC1Colour.Value); // bugfixed: only set colour if line is being draw.
-				ImPlot::PlotLine("##Osc 1", time_osc1.data(), analog_data_osc1.data(),
-					analog_data_osc1.size());
+			if (osc_control->DisplayCheckOSC1) {
+				ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
+				ImPlot::SetNextLineStyle(osc_control->OSC1Colour.Value);
+				ImPlot::PlotLine("##Osc 1", time_osc1.data(),
+					analog_data_osc1.data(), (int)analog_data_osc1.size());
 			}
-			// Set OscData Time Vector to match the current X-axis
 			OSC1Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
-			// Plot Oscilloscope 2 Signal
+
 			std::vector<double> time_osc2 = OSC2Data.GetTime();
-			if (osc_control->DisplayCheckOSC2)
-			{
+			if (osc_control->DisplayCheckOSC2) {
+				ImPlot::SetAxes(ImAxis_X1, separate ? ImAxis_Y2 : ImAxis_Y1);
 				ImPlot::SetNextLineStyle(osc_control->OSC2Colour.Value);
-				ImPlot::PlotLine("##Osc 2", time_osc2.data(), analog_data_osc2.data(),
-					analog_data_osc2.size());
+				ImPlot::PlotLine("##Osc 2", time_osc2.data(),
+					analog_data_osc2.data(), (int)analog_data_osc2.size());
 			}
-			// Set OscData Time Vector to match the current X-axis
 			OSC2Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
-			// Plot Math Signal
-			// --- Math Signal ---
-			// choose a time base
+
+			// Math on Y1
 			std::vector<double> time_math = (time_osc1.size() >= time_osc2.size()) ? time_osc1 : time_osc2;
 			std::string expr = osc_control->MathControls1.Text;
 			bool parse_success = false;
-
-			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2, time_math, parse_success);
-
+			std::vector<double> math_data =
+				EvalUserExpression(expr, analog_data_osc1, analog_data_osc2, time_math, parse_success);
 			if (parse_success) {
 				osc_control->MathControls1.Parsable = true;
-
-				if (osc_control->MathControls1.On) {
-					
-
-					// if result is empty or time base is empty, clear and bail
-					if (math_data.empty() || time_math.empty()) {
-						MathData.SetData({});                 // <<< clear stale MATH buffer
-					}
-					else {
-						// update MathData only when we actually have samples to show
-						MathData.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max, time_math);
-						MathData.SetData(math_data);
-						ImPlot::SetNextLineStyle(osc_control->MathColour.Value);
-						ImPlot::PlotLine("##Math", time_math.data(), math_data.data(), (int)math_data.size());
-					}
+				if (osc_control->MathControls1.On && !math_data.empty() && !time_math.empty()) {
+					ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
+					MathData.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max, time_math);
+					MathData.SetData(math_data);
+					ImPlot::SetNextLineStyle(osc_control->MathColour.Value);
+					ImPlot::PlotLine("##Math", time_math.data(), math_data.data(), (int)math_data.size());
 				}
 				else {
-					// toggle is OFF → clear any previous math samples
-					MathData.SetData({});                     // <<< clear when OFF
+					MathData.SetData({});
 				}
 			}
 			else {
-				// parse failed → not parsable, clear any previous math samples
 				osc_control->MathControls1.Parsable = false;
-				MathData.SetData({});                         // <<< clear on parse failure
+				MathData.SetData({});
 			}
 
-			// Plot cursors
-			if (osc_control->Cursor1toggle)
-				drawCursor(1, &cursor1_x, &cursor1_y);
-			if (osc_control->Cursor2toggle)
-				drawCursor(2, &cursor2_x, &cursor2_y);
-
+			// Cursors & triggers
+			if (osc_control->Cursor1toggle) drawCursor(1, &cursor1_x, &cursor1_y);
+			if (osc_control->Cursor2toggle) drawCursor(2, &cursor2_x, &cursor2_y);
 			DrawAndDragTriggers();
-			
+
+			// Save Y2 limits at end of separated frame so next toggle restores user view
+			if (separate) {
+				ImPlotRect r2 = ImPlot::GetPlotLimits(ImAxis_X1, ImAxis_Y2);
+				y2_saved_lo = r2.Y.Min;
+				y2_saved_hi = r2.Y.Max;
+				y2_saved_valid = true;
+			}
 
 			ImPlot::EndPlot();
 		}
+
+		// track edge for next frame
+		prev_separate = separate;
+
+
+
+
+
+
+
+
 
 
 		// --- Spectrum Analyser ---
@@ -1379,27 +1415,31 @@ public:
 		ImVec2 plot_min = ImPlot::GetPlotPos();
 		ImVec2 plot_size = ImPlot::GetPlotSize();
 		ImVec2 plot_max(plot_min.x + plot_size.x, plot_min.y + plot_size.y);
-		ImPlotRect lim = ImPlot::GetPlotLimits();
-
-		ImVec2 px = ImPlot::PlotToPixels(trig_x, trig_y);
 		ImGuiIO& io = ImGui::GetIO();
 
-		// trigger information
-		constants::Channel trigger_channel = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).channel;
-		constants::TriggerType trigger_type = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).trigger_type;
+		// --- Trigger channel/type ---
+		const auto& pair = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem);
+		constants::Channel trigger_channel = pair.channel;
+		constants::TriggerType trigger_type = pair.trigger_type;
 
-		ImColor col_trig_col = trigger_channel == constants::Channel::OSC1 ? osc_control->OSC1Colour : osc_control->OSC2Colour;
-		if (!osc_control->Trigger)
-		{
-			col_trig_col.Value.w = 0.5f; // make transparent
-		}
+		// --- Which Y axis to use (explicit; no SetAxes calls) ---
+		const bool separate = osc_control->SeparateYAxisToggle;
+		ImAxis y_axis = (separate && trigger_channel == constants::Channel::OSC2) ? ImAxis_Y2 : ImAxis_Y1;
+
+		// --- Limits & pixel position using explicit axes ---
+		ImPlotRect lim = ImPlot::GetPlotLimits(ImAxis_X1, y_axis);
+		ImVec2 px = ImPlot::PlotToPixels(trig_x, trig_y, ImAxis_X1, y_axis);
+
+		// --- Colour ---
+		ImColor col_trig_col = (trigger_channel == constants::Channel::OSC1) ? osc_control->OSC1Colour : osc_control->OSC2Colour;
+		if (!osc_control->Trigger) col_trig_col.Value.w = 0.5f;
 		ImU32 col_trig = ImGui::GetColorU32(col_trig_col.Value);
 
 		// --- persistent per-frame drag state ---
 		struct { bool x = false, y = false; } static drag;
 
 		bool lmb_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-		bool lmb_dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left,1.0f);
+		bool lmb_dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left, 1.0f);
 		bool lmb_released = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
 		bool double_clicked = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
 		bool ctrl_down = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl);
@@ -1416,61 +1456,52 @@ public:
 			bool scaled_font = false;
 
 			if (on_screen) { x = px.x; y = plot_min.y; }
-			else if (px.x < plot_min.x) { // left indicator
+			else if (px.x < plot_min.x) {
 				float ss = 3.f * expf(100.f * float(trig_x - lim.X.Min)) + 5.f;
 				s = ss; x = plot_min.x - s * 0.5f; y = plot_min.y;
 				ImGui::SetWindowFontScale(s / 10.0f); scaled_font = true;
 			}
-			else {                      // right indicator
+			else {
 				float ss = 3.f * expf(100.f * float(lim.X.Max - trig_x)) + 5.f;
 				s = ss; x = plot_max.x + s * 0.5f; y = plot_min.y;
 				ImGui::SetWindowFontScale(s / 10.0f); scaled_font = true;
 			}
 
-			// Triangle + "T"
 			ImVec2 p1(x, y + s), p2(x - 0.5f * s, y), p3(x + 0.5f * s, y);
 			draw_list->AddTriangleFilled(p1, p2, p3, col_trig);
 			ImVec2 ts = ImGui::CalcTextSize("T");
 			draw_list->AddText(ImVec2(x - ts.x * 0.5f, y - ts.y + 4.f), col_trig, "T");
 
-			
-
-
-			// Hit box (larger than triangle)
 			ImRect hit(ImVec2(x - 0.6f * s - 4.f, y - s - 4.f),
 				ImVec2(x + 0.6f * s + 4.f, y + s + 4.f));
 			bool hovered = hit.Contains(io.MousePos) && ImPlot::IsPlotHovered();
-			if (hovered && !drag.y)
-			{
-				ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-			}
+
+			if (hovered && !drag.y) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+
 			if (ctrl_down) DrawEdgeIndicatorX(draw_list, x, y, ts, trigger_type, col_trig);
-			if (hovered && shift_down)
-			{
-				osc_control->Trigger = !osc_control->Trigger; // if ctrl + double clicked, toggle trigger
+
+			if (hovered && shift_down && lmb_clicked) {
+				osc_control->Trigger = !osc_control->Trigger;
 			}
-			else if (hovered && double_clicked) // if x trigger left double clicked, set to 0s
-			{
+			else if (hovered && double_clicked) {
+				// Reset X trigger to 0s and prevent plot-level autofits/resets this frame
 				trig_x = 0.0;
-				next_resetX = false;
-				next_resetY = false;
-				next_autofitX = false;
-				next_autofitY = false;
+				next_resetX = false; next_resetY = false;
+				next_autofitX = false; next_autofitY = false;
 			}
-			else if (hovered && lmb_clicked && ctrl_down)
-			{
+			else if (hovered && lmb_clicked && ctrl_down) {
 				ToggleTriggerTypeComboType(&osc_control->TriggerTypeComboCurrentItem);
 			}
-			else if (hovered && lmb_clicked && alt_down)
-			{
+			else if (hovered && lmb_clicked && alt_down) {
 				ToggleTriggerTypeComboChannel(&osc_control->TriggerTypeComboCurrentItem);
 			}
-			else if (hovered && lmb_clicked && !drag.y) drag.x = true;
+			else if (hovered && lmb_clicked && !drag.y) {
+				drag.x = true;
+			}
 
-			// Dragging
 			if (drag.x && lmb_dragging) {
 				float mx = clampf(io.MousePos.x, plot_min.x, plot_max.x);
-				ImPlotPoint plot_xy = ImPlot::PixelsToPlot(ImVec2(mx, plot_min.y));
+				ImPlotPoint plot_xy = ImPlot::PixelsToPlot(ImVec2(mx, plot_min.y), ImAxis_X1, y_axis);
 				trig_x = ImClamp(double(plot_xy.x), lim.X.Min, lim.X.Max);
 			}
 			if (drag.x && lmb_released) drag.x = false;
@@ -1486,12 +1517,12 @@ public:
 			bool scaled_font = false;
 
 			if (on_screen) { x = plot_max.x; y = px.y; }
-			else if (px.y > plot_max.y) { // bottom indicator
+			else if (px.y > plot_max.y) {
 				float ss = 3.f * expf(1.f * float(trig_y - lim.Y.Min)) + 5.f;
 				s = ss; x = plot_max.x; y = plot_max.y + s * 0.5f;
 				ImGui::SetWindowFontScale(s / 10.0f); scaled_font = true;
 			}
-			else {                      // top indicator
+			else {
 				float ss = 3.f * expf(1.f * float(lim.Y.Max - trig_y)) + 5.f;
 				s = ss; x = plot_max.x; y = plot_min.y - s * 0.5f;
 				ImGui::SetWindowFontScale(s / 10.0f); scaled_font = true;
@@ -1502,50 +1533,46 @@ public:
 			ImVec2 ts = ImGui::CalcTextSize("T");
 			draw_list->AddText(ImVec2(x, y - ts.y * 0.5f), col_trig, "T");
 
-			// Draw Automatic indicator
-			if (osc_control->AutoTriggerLevel)
-			{
+			if (osc_control->AutoTriggerLevel) {
 				ImGui::SetWindowFontScale(s / 17.f); scaled_font = true;
 				ImVec2 at_ts = ImGui::CalcTextSize("A");
-				ImVec2 at_text_pos(x + 2.f, y - ts.y * 0.5f - at_ts.y+1.f);
-				ImVec2 at_circle_pos(at_text_pos.x + 0.5 * at_ts.x - 0.5f, at_text_pos.y + 0.5 * at_ts.y + 0.5f);
-				draw_list->AddText(ImVec2(at_text_pos.x, at_text_pos.y), col_trig, "A");
-				draw_list->AddCircle(ImVec2(at_circle_pos.x, at_circle_pos.y), 0.4f * at_ts.y, col_trig);
+				ImVec2 at_text_pos(x + 2.f, y - ts.y * 0.5f - at_ts.y + 1.f);
+				ImVec2 at_circle_pos(at_text_pos.x + 0.5f * at_ts.x - 0.5f, at_text_pos.y + 0.5f * at_ts.y + 0.5f);
+				draw_list->AddText(at_text_pos, col_trig, "A");
+				draw_list->AddCircle(at_circle_pos, 0.4f * at_ts.y, col_trig);
 			}
 
 			ImRect hit(ImVec2(x - s - 4.f, y - s - 4.f),
 				ImVec2(x + ts.x + 4.f, y + s + 4.f));
 			bool hovered = hit.Contains(io.MousePos) && ImPlot::IsPlotHovered();
-			if (hovered && !drag.x)
-			{
-				ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-			}
+
+			if (hovered && !drag.x) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+
 			if (ctrl_down) DrawEdgeIndicatorY(draw_list, x, y, ts, trigger_type, col_trig);
-			if (hovered && shift_down && lmb_clicked)
-			{
-				osc_control->Trigger = !osc_control->Trigger; // if ctrl + double clicked, toggle trigger
+
+			if (hovered && shift_down && lmb_clicked) {
+				osc_control->Trigger = !osc_control->Trigger;
 			}
-			else if (hovered && double_clicked) // if y trigger left double clicked, toggel automode
-			{
+			else if (hovered && double_clicked) {
+				// Toggle auto mode and prevent plot-level autofits/resets this frame
 				osc_control->AutoTriggerLevel = !osc_control->AutoTriggerLevel;
-				next_resetX = false;
-				next_resetY = false;
-				next_autofitX = false;
-				next_autofitY = false;
+				next_resetX = false; next_resetY = false;
+				next_autofitX = false; next_autofitY = false;
 			}
-			else if (hovered && lmb_clicked && ctrl_down)
-			{
+			else if (hovered && lmb_clicked && ctrl_down) {
 				ToggleTriggerTypeComboType(&osc_control->TriggerTypeComboCurrentItem);
 			}
-			else if (hovered && lmb_clicked && alt_down)
-			{
+			else if (hovered && lmb_clicked && alt_down) {
 				ToggleTriggerTypeComboChannel(&osc_control->TriggerTypeComboCurrentItem);
 			}
-			else if (hovered && lmb_clicked && !drag.x) drag.y = true;
+			else if (hovered && lmb_clicked && !drag.x) {
+				drag.y = true;
+			}
+
 			if (drag.y && lmb_dragging) {
 				osc_control->AutoTriggerLevel = false;
 				float my = clampf(io.MousePos.y, plot_min.y, plot_max.y);
-				ImPlotPoint plot_xy = ImPlot::PixelsToPlot(ImVec2(plot_min.x, my));
+				ImPlotPoint plot_xy = ImPlot::PixelsToPlot(ImVec2(plot_min.x, my), ImAxis_X1, y_axis);
 				trig_y = ImClamp(double(plot_xy.y), lim.Y.Min, lim.Y.Max);
 			}
 			if (drag.y && lmb_released) drag.y = false;
@@ -1556,10 +1583,11 @@ public:
 		// Write back
 		trigger_time_plot = trig_x;
 		osc_control->TriggerLevel.setLevel(trig_y);
-
-		// Publish current drag state so BeginPlot can apply flags next frame
 		trig_dragging = drag.x || drag.y;
 	}
+
+
+
 	void DrawEdgeIndicatorX(ImDrawList* draw_list, float x, float y, ImVec2 ts, constants::TriggerType trigger_type, ImU32 col_trig)
 	{
 		// Draw Trigger Type indicator
@@ -2006,5 +2034,171 @@ protected:
 		return total;
 	}
 
-	
+	void ShowAxisLimitsTestWindow()
+	{
+		if (!ImGui::Begin("Axis limits test"))
+		{
+			ImGui::End();
+			return;
+		}
+
+		// ---------- One-shot actions ----------
+		static bool next_reset_x = false;
+		static bool next_autofit_x = false;
+		static bool next_reset_y1 = false;
+		static bool next_autofit_y1 = false;
+		static bool next_reset_y2 = false;
+		static bool next_autofit_y2 = false;
+
+		if (ImGui::Button("Reset X"))       next_reset_x = true;
+		ImGui::SameLine();
+		if (ImGui::Button("Autofit X"))     next_autofit_x = true;
+
+		ImGui::SameLine();
+		if (ImGui::Button("Reset Y1"))      next_reset_y1 = true;
+		ImGui::SameLine();
+		if (ImGui::Button("Autofit Y1"))    next_autofit_y1 = true;
+
+		ImGui::SameLine();
+		if (ImGui::Button("Reset Y2"))      next_reset_y2 = true;
+		ImGui::SameLine();
+		if (ImGui::Button("Autofit Y2"))    next_autofit_y2 = true;
+
+		ImGui::Separator();
+
+		// ---------- Test data ----------
+		static std::vector<double> x;
+		static std::vector<double> y1;
+		static std::vector<double> y2;
+		const int N = 2000;
+
+		if (x.empty())
+		{
+			x.resize(N);
+			y1.resize(N);
+			y2.resize(N);
+
+			for (int i = 0; i < N; ++i)
+			{
+				double t = (double)i / (N - 1);  // 0..1
+				x[i] = t;
+				y1[i] = std::sin(2.0 * M_PI * 3.0 * t);          // Y1: 3 cycles
+				y2[i] = 0.4 * std::cos(2.0 * M_PI * 7.0 * t);    // Y2: 7 cycles
+			}
+		}
+
+		// ---------- Stored ranges ----------
+		static bool   initialised = false;
+		static double x_lo, x_hi;
+		static double y1_lo, y1_hi;
+		static double y2_lo, y2_hi;
+
+		const double x_init_lo = 0.0;
+		const double x_init_hi = 1.0;
+		const double y1_init_lo = -1.5;
+		const double y1_init_hi = 1.5;
+		const double y2_init_lo = -1.5;
+		const double y2_init_hi = 1.5;
+
+		if (!initialised)
+		{
+			x_lo = x_init_lo;  x_hi = x_init_hi;
+			y1_lo = y1_init_lo; y1_hi = y1_init_hi;
+			y2_lo = y2_init_lo; y2_hi = y2_init_hi;
+			initialised = true;
+		}
+
+		auto compute_range = [](const std::vector<double>& v, double& lo, double& hi)
+		{
+			if (v.empty())
+				return;
+			auto [it_min, it_max] = std::minmax_element(v.begin(), v.end());
+			lo = *it_min;
+			hi = *it_max;
+
+			double span = hi - lo;
+			if (span <= 0.0)
+				span = 1.0;
+
+			double pad = 0.05 * span;
+			lo -= pad;
+			hi += pad;
+		};
+
+		// ---------- Apply button actions to our ranges ----------
+		// X
+		if (next_reset_x)
+		{
+			x_lo = x_init_lo;
+			x_hi = x_init_hi;
+			next_reset_x = false;
+		}
+		if (next_autofit_x)
+		{
+			compute_range(x, x_lo, x_hi);
+			next_autofit_x = false;
+		}
+
+		// Y1
+		if (next_reset_y1)
+		{
+			y1_lo = y1_init_lo;
+			y1_hi = y1_init_hi;
+			next_reset_y1 = false;
+		}
+		if (next_autofit_y1)
+		{
+			compute_range(y1, y1_lo, y1_hi);
+			next_autofit_y1 = false;
+		}
+
+		// Y2
+		if (next_reset_y2)
+		{
+			y2_lo = y2_init_lo;
+			y2_hi = y2_init_hi;
+			next_reset_y2 = false;
+		}
+		if (next_autofit_y2)
+		{
+			compute_range(y2, y2_lo, y2_hi);
+			next_autofit_y2 = false;
+		}
+
+		// ---------- Feed ranges into ImPlot ----------
+		// Your requested combo:
+		//  - SetNextAxesLimits with ImPlotCond_None for X+Y1
+		//  - SetNextAxisLimits with ImPlotCond_Always for Y2
+		ImPlot::SetNextAxesLimits(x_lo, x_hi, y1_lo, y1_hi, ImPlotCond_None);
+		ImPlot::SetNextAxisLimits(ImAxis_Y2, y2_lo, y2_hi, ImPlotCond_Always);
+
+		if (ImPlot::BeginPlot("Axis control test"))
+		{
+			ImPlot::SetupAxis(ImAxis_X1, "t");
+			ImPlot::SetupAxis(ImAxis_Y1, "Y1");
+			ImPlot::SetupAxis(ImAxis_Y2, "Y2", ImPlotAxisFlags_AuxDefault);
+
+			// Plot on Y1
+			ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
+			ImPlot::PlotLine("Y1", x.data(), y1.data(), N);
+
+			// Plot on Y2
+			ImPlot::SetAxis(ImAxis_Y2);
+			ImPlot::PlotLine("Y2", x.data(), y2.data(), N);
+
+			ImPlot::EndPlot();
+		}
+
+		ImGui::TextUnformatted(
+			"Config here:\n"
+			"- X + Y1: SetNextAxesLimits(..., ImPlotCond_None).\n"
+			"- Y2    : SetNextAxisLimits(ImAxis_Y2, ..., ImPlotCond_Always).\n"
+			"Use the buttons and mouse to see how each axis behaves."
+		);
+
+		ImGui::End();
+	}
+
+
+
 };
