@@ -186,30 +186,61 @@ public:
 			temp_data = extended_data;
 			if (time_max > trigger_time_plot)
 			{
-				trigger_start_index = temp_data.size() - 1 - (time_max-trigger_time_plot) * sample_rate_hz;
+				trigger_start_index = (int)temp_data.size() - 1 - (int)((time_max - trigger_time_plot) * sample_rate_hz);
 			}
 			else
 			{
-				trigger_start_index = temp_data.size() - 1;
+				trigger_start_index = (int)temp_data.size() - 1;
 			}
-			trigger_end_index = trigger_start_index - trigger_timeout * sample_rate_hz + 2; // why + 2? i don't know
-			if (trigger && time_window > 0 && extended_data.size() != 0)
+			trigger_end_index = trigger_start_index - (int)(trigger_timeout * sample_rate_hz) + 2; // keep original +2
+
+			if (trigger && time_window > 0 && !extended_data.empty())
 			{
+				// ---- Minimal additions begin ----
+				// Build the exact segment we search over (ensure i-1 safe at the end of the loop)
+				const int seg_begin = std::max(trigger_end_index - 1, 0);
+				const int seg_end = std::max(std::min(trigger_start_index, (int)temp_data.size() - 1), 0);
+				const int seg_len = seg_end - seg_begin + 1;
+
+				double vpp = 0.0;
+				if (seg_len >= 2) {
+					// Copy, denoise, compute Vpp on denoised
+					std::vector<double> seg;
+					seg.reserve((size_t)seg_len);
+					for (int i = seg_begin; i <= seg_end; ++i)
+						seg.push_back(temp_data[(size_t)i]);
+
+					const double lambda_tv = 0.12; // tune externally if desired
+					std::vector<double> seg_dn = tv_denoise(seg, lambda_tv);
+
+					auto mm = std::minmax_element(seg_dn.begin(), seg_dn.end());
+					vpp = std::max(1e-12, *mm.second - *mm.first);
+
+					// Write back denoised segment so the existing loop uses it unchanged
+					for (int j = 0; j < seg_len; ++j)
+						temp_data[(size_t)(seg_begin + j)] = seg_dn[(size_t)j];
+				}
+				else {
+					vpp = 1e-12; // degenerate window; avoid zero
+				}
+				// ---- Minimal additions end ----
+
 				switch (trigger_type)
 				{
 				case constants::TriggerType::RISING_EDGE:
 				{
-					double hysteresis_level = trigger_level - trigger_hysteresis;
+					// hysteresis is now a fraction of Vpp
+					double hysteresis_level = trigger_level - (trigger_hysteresis * vpp);
 					bool trigger_flag = false;
 					for (int i = trigger_start_index; i > trigger_end_index; i--)
 					{
-						if (temp_data[i] > trigger_level
-							&& temp_data[i - 1] < trigger_level)
+						if (temp_data[(size_t)i] > trigger_level
+							&& temp_data[(size_t)(i - 1)] < trigger_level)
 						{
 							trigger_time_since_ext_start = i / sample_rate_hz; // time in seconds after beginning of extended_data
 							trigger_flag = true;
 						}
-						if (trigger_flag&& temp_data[i] < hysteresis_level)
+						if (trigger_flag&& temp_data[(size_t)i] < hysteresis_level)
 						{
 							return trigger_time_since_ext_start;
 						}
@@ -218,16 +249,17 @@ public:
 				}
 				case constants::TriggerType::FALLING_EDGE:
 				{
-					double hysteresis_level = trigger_level + trigger_hysteresis;
+					// hysteresis is now a fraction of Vpp
+					double hysteresis_level = trigger_level + (trigger_hysteresis * vpp);
 					bool trigger_flag = false;
 					for (int i = trigger_start_index; i > trigger_end_index; i--)
 					{
-						if (temp_data[i] < trigger_level && temp_data[i - 1] > trigger_level)
+						if (temp_data[(size_t)i] < trigger_level && temp_data[(size_t)(i - 1)] > trigger_level)
 						{
 							trigger_time_since_ext_start = i / sample_rate_hz; // time in seconds after beginning of extended_data
 							trigger_flag = true;
 						}
-						if (trigger_flag && temp_data[i] > hysteresis_level)
+						if (trigger_flag && temp_data[(size_t)i] > hysteresis_level)
 						{
 							return trigger_time_since_ext_start;
 						}
@@ -251,6 +283,7 @@ public:
 		}
 		return trigger_time_since_ext_start;
 	}
+
 	void SetTriggerTime(double trigger_time)
 	{
 		if (!paused)

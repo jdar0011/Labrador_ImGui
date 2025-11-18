@@ -356,12 +356,24 @@ public:
 			// --- Math Signal ---
 			// choose a time base
 			std::vector<double> time_math = (time_osc1.size() >= time_osc2.size()) ? time_osc1 : time_osc2;
+			if (time_math.empty()) {
+				// create time vector based on current x-axis limits if both oscs are empty
+				// use number of points based on a 375000 Hz sample rate
+				double x_min = ImPlot::GetPlotLimits().X.Min;
+				double x_max = ImPlot::GetPlotLimits().X.Max;
+				const double sample_rate = 375000.0;
+				size_t num_points = static_cast<size_t>((x_max - x_min) * sample_rate);
+				time_math.resize(num_points);
+				for (size_t i = 0; i < num_points; i++) {
+					time_math[i] = x_min + (static_cast<double>(i) / static_cast<double>(num_points)) * (x_max - x_min);
+				}
+			}
 			std::string expr = osc_control->MathControls1.Text;
-			bool parse_success = false;
+			ParseStatus parse_status;
 
-			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2, time_math, parse_success);
+			std::vector<double> math_data = EvalUserExpression(expr, analog_data_osc1, analog_data_osc2, time_math, parse_status);
 
-			if (parse_success) {
+			if (parse_status.success) {
 				osc_control->MathControls1.Parsable = true;
 
 				if (osc_control->MathControls1.On) {

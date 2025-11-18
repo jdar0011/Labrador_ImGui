@@ -290,28 +290,61 @@ void ToggleTriggerTypeComboType(int* ComboCurrentItem)
 		*ComboCurrentItem = 2;
 	}
 }
-std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2, std::vector<double> time, bool &parse_success)
+std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2, std::vector<double> time, ParseStatus& parse_status)
 {
-	int N = osc1.size() > osc2.size() ? osc1.size() : osc2.size();
-	std::vector<double> result(N);
+	parse_status.success = false;
+
+	// --------------------------------------------------------------------
+	// If either osc is empty, replace it with a zero vector sized to "time"
+	// --------------------------------------------------------------------
+	std::size_t T = time.size();
+
+	if (T == 0) {
+		// If there is literally no time vector, nothing can be evaluated.
+		parse_status.success = false;
+		return {};
+	}
+
+	if (osc1.empty())
+		osc1.assign(T, 0.0);
+
+	if (osc2.empty())
+		osc2.assign(T, 0.0);
+
+	// Output vector size always matches time
+	std::vector<double> result(T, 0.0);
+
+	// --------------------------------------------------------------------
+	// Build symbol table and expression
+	// --------------------------------------------------------------------
 	exprtk::symbol_table<double> sym;
 	sym.add_vector("osc1", osc1);
 	sym.add_vector("osc2", osc2);
-	sym.add_vector("result", result);
 	sym.add_vector("t", time);
+	sym.add_vector("result", result);
 	sym.add_constants();
+
 	std::string src = "result := (" + user_text + ");";
+
 	exprtk::expression<double> expr;
 	expr.register_symbol_table(sym);
 	exprtk::parser<double> parser;
-	if (parser.compile(src, expr))
+
+	// --------------------------------------------------------------------
+	// Compile
+	// --------------------------------------------------------------------
+	if (!parser.compile(src, expr))
 	{
-		parse_success = true;
+		parse_status.success = false;
+		return result;
 	}
-	else {
-		parse_success = false;
-	}
-	expr.value();
+
+	// --------------------------------------------------------------------
+	// Evaluate
+	// --------------------------------------------------------------------
+	expr.value(); // fills "result"
+
+	parse_status.success = true;
 	return result;
 }
 

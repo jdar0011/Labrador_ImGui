@@ -207,6 +207,15 @@ public:
 			ImGui::SameLine();
 			ImGui::TextWrapped(u8"%s", md_text.c_str());
 		}
+		else if (md_text.compare(0, 6, "    - ") == 0)
+		{
+			md_text.erase(0, 6);
+			ImGui::Dummy(ImVec2(20, 0));
+			ImGui::SameLine();
+			ImGui::BulletText("");
+			ImGui::SameLine();
+			ImGui::TextWrapped(u8"%s", md_text.c_str());
+		}
 		else
 		{
 			ImGui::TextWrapped(u8"%s", md_text.c_str());

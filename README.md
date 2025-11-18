@@ -159,15 +159,22 @@ chmod +x package_mac.sh
 
 #### Spectrum Analyser
 
-- **Start Acquiring**: Acquire oscilloscope data to pass through FFT algorithm. Results are displayed after data acquisition has been completed.
+- **Start Acquiring/Acquire**: Acquire oscilloscope data to pass through FFT algorithm. Results are displayed after data acquisition has been completed. Behaviour depends on "Acquisition Mode" (gated or lookback, see description for details).
 - **Auto Fit**: Automatically set the plot scale to best show the data.
 - **Display**: Toggle the display of either oscilloscope channel. 
 - **Advanced Options**:
   - **Sample Rate**: How many times per second the oscilloscope is sampled.
-  - **Max Time Window**: Duration of acquisition.
-  - **Windowing Function**: 
-  - **Vertical Units**: 
-  - **Acquisition Mode**: 
+  - **Max Time Window/Time Window**: Max duration of acquisition., or duration of acquisition, depending on acquisition mode (see description for details)
+  - **Windowing Function**: Shape applied to the signal before the FFT. Helps reduce leakage and improve peak clarity.
+    - **Rectangular**: No tapering. Highest frequency resolution, but more spectral leakage.
+    - **Hann**: Smooth tapering. Lower leakage and cleaner peaks, slightly reduced resolution.
+  - **Vertical Units**: Scale used to display FFT magnitude.
+    - **dBm**: Power level referenced to 1 mW (assumes 50 Ω load). Displayed on a logarithmic dB scale.
+    - **dBV**: Voltage level referenced to 1 V (20 log10(V)). Displayed on a logarithmic dB scale.
+    - **V RMS**: Root-mean-square voltage of each frequency component. Direct physical voltage measurement on a linear scale.
+  - **Acquisition Mode**: Choose the desired mode of data acquisition.
+    - **Gated (Start-Stop)**: Starts acquiring the moment the "Start Acquiring" button is pressed. Stops acquiring after a time segment equal to "Max Time Window" has passed, or the button is pressed again.
+    - **Lookback**: Immediately acquires the most recent time segment equal to the "Time Window" (i.e., the last *t* seconds), without waiting for new data.
 
 #### Network Analyser
 
@@ -179,9 +186,13 @@ chmod +x package_mac.sh
 - **Reference (Output) Channel**: Oscilloscope channel reading the network output.
 - **Frequency Range**: Select range for frequency sweep.
 - **Advanced Options**:
-  - **Vertical Units**: 
-  - **Number of Data Points**: Number of differenct frequencies to test.
-  - **Point Spacing**: Logarithmic - higher freqency inputs are more spaced apart. Linear - evenly spaced frequncy inputs.
+  - **Vertical Units**: Scale used to display frequency response magntiude.
+    - **dB**: Displays the frequency response magnitude using a logarithmic decibel scale (20 log10). Highlights relative gain and attenuation more clearly.
+    - **Linear**: Displays the raw magnitude of the frequency response on a linear, unitless scale.
+  - **Number of Data Points**: Number of differenct frequencies to test in the frequency sweep.
+  - **Point Spacing**: 
+    - **Logarithmic**: higher freqency inputs are more spaced apart. 
+    - **Linear**: evenly spaced frequncy inputs.
 
 ### Plot Window
 
