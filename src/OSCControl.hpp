@@ -229,11 +229,12 @@ public:
             ImVec2 mx = ImGui::GetItemRectMax();
             float pad = 6.0f;
             mn.x -= pad; mn.y -= pad; mx.x += pad; mx.y += pad;
+            std::string error_tooltip = "Text not parsable!";
             if (ImGui::IsMouseHoveringRect(mn, mx))
             {
                 ImGui::BeginTooltip();
                 ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-                ImGui::TextUnformatted("Text not parsable!");
+                ImGui::TextUnformatted(error_tooltip.c_str());
                 ImGui::PopTextWrapPos();
                 ImGui::EndTooltip();
             }

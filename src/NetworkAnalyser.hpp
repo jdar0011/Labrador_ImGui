@@ -119,6 +119,7 @@ public:
                 total += std::max(dt, t_wait_cont);
             }
         }
+		total += 4.0+4*total/30; // estimated overhead
         return total;
     }
 

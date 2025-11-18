@@ -33,7 +33,7 @@ constexpr float OSC_ACCENT[3] = { 0.4, 0.4, 0.4 };
 constexpr float OSC1_ACCENT[3] = { 230. / 255, 207. / 255, 2. / 255 };
 constexpr float OSC2_ACCENT[3] = { 255. / 255, 123. / 255, 250. / 255 };
 constexpr float GEN_ACCENT[3] = { 150. / 255, 150. / 255, 150. / 255 };
-constexpr float MATH_ACCENT[3] = { 4*18. / 255, 4*33. / 255, 4*69. / 255 };
+constexpr float MATH_ACCENT[3] = { 0, 0.9, 0.78 };
 constexpr float PLOT_ACCENT[3] = {0., 0., 0.};
 constexpr float SPECTRUM_ANALYSER_ACCENT[3] = { 210. / 255, 68. / 255, 41. / 255 };
 constexpr float NETWORK_ANALYSER_ACCENT[3] = { 65. / 255, 194. / 255, 55. / 255 };
@@ -155,6 +155,11 @@ enum PlotColour {
 	Plot_Magenta,
 	Plot_White
 };
+struct ParseStatus {
+	bool success = false;
+	bool osc1_empty_causing_parse_error;
+	bool osc2_empty_causing_parse_error;
+};
 
 std::string getResourcePath(const std::string& filename);
 void init_constants();
@@ -170,7 +175,7 @@ std::string NumToString(double num,int precision);
 int MetricFormatter(double value, char* buff, int size, void* data);
 void ToggleTriggerTypeComboChannel(int* ComboCurrentItem);
 void ToggleTriggerTypeComboType(int* ComboCurrentItem);
-std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2, std::vector<double> time, bool& parse_success);
+std::vector<double> EvalUserExpression(std::string user_text, std::vector<double> osc1, std::vector<double> osc2, std::vector<double> time, ParseStatus& parse_status);
 bool SliderFloatPercent(const char* label, float* v01,
 	const char* fmt = "%.0f%%",
 	ImGuiSliderFlags flags = 0);
