@@ -23,6 +23,10 @@
 
 namespace constants
 {
+// Desired Firmware Version/Variant
+constexpr uint16_t DESIRED_FW_VERSION = 7;
+constexpr uint8_t DESIRED_FW_VARIANT = 2;
+
 // Theme Colours
 constexpr ImU32 PRIM_LIGHT = IM_COL32(255, 255, 255, 255); // primary light
 constexpr float SG1_ACCENT[3] = { 42. / 255, 39. / 255, 212. / 255 };

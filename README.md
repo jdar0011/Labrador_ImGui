@@ -38,11 +38,11 @@ brew install cmake
 chmod +x package_mac.sh
 ./package_mac.sh
 ```
-- LabradorImgui executable can be run via
+- LabraScope executable can be run via
 ```
-./mac_appbundle/LabradorImgui.app/Contents/MacOS/LabradorImgui
+./mac_appbundle/LabraScope.app/Contents/MacOS/LabraScope
 ```
-- or you can open LabradorImgui.app from the mac_appbundle folder
+- or you can open LabraScope.app from the mac_appbundle folder
 
 # User Documentation
 

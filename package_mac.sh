@@ -32,6 +32,8 @@ echo "Copying resources..."
 cp -R misc/media "$RESOURCES_DIR/"
 cp -R misc/fonts "$RESOURCES_DIR/"
 cp -R README.md "$RESOURCES_DIR/"
+cp -R firmware "$RESOURCES_DIR/"
+
 
 # 5. Copy Info.plist if it exists
 if [ ! -f "$INFO_PLIST" ]; then

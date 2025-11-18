@@ -5,7 +5,7 @@
       "name": "Debug MyApp (lldb)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/mac_appbundle/LabradorImgui.app/Contents/MacOS/LabradorImgui",
+      "program": "${workspaceFolder}/mac_appbundle/LabraScope.app/Contents/MacOS/LabraScope",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",

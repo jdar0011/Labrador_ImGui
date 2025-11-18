@@ -81,7 +81,8 @@ class App : public AppBase<App>
 			uint16_t deviceVersion = librador_get_device_firmware_version();
 			uint8_t deviceVariant = librador_get_device_firmware_variant();
 
-			*flash_firmware_popup = deviceVariant != 2;
+			*flash_firmware_popup = deviceVariant != constants::DESIRED_FW_VARIANT || 
+									deviceVersion != constants::DESIRED_FW_VERSION;		
 #ifndef NDEBUG
 			printf("deviceVersion=%hu, deviceVariant=%hhu\n", deviceVersion, deviceVariant);
 #endif
@@ -139,15 +140,12 @@ class App : public AppBase<App>
 		analysisToolsWidget.SetNetworkAnalyser(&na, &na_cfg);
 		PlotWidgetObj.SetControllers(&OSCWidget, &analysisToolsWidget);
 
-
-
 		IM_ASSERT(psu_ret);
 		IM_ASSERT(sg_ret);
 		IM_ASSERT(osc_ret);
 		IM_ASSERT(glob_ret);
 
 		init_constants();
-
 
 		// Loads README.md contents for in-app documentation
 		loadREADME();
@@ -178,7 +176,9 @@ class App : public AppBase<App>
 			fps_smooth = (fps_smooth == 0.0) ? fps : fps_smooth * (1.0 - alpha) + fps * alpha;
 
 			// Print or display
+#ifndef NDEBUG
 			printf("Frame: %.2f ms (%.1f FPS)\n", frame_ms, fps);
+#endif
 		}
 
 		
@@ -217,16 +217,57 @@ class App : public AppBase<App>
 						// Print firmware info
 						uint16_t deviceVersion = librador_get_device_firmware_version();
 						uint8_t deviceVariant = librador_get_device_firmware_variant();
-						ImGui::TextColored(constants::GRAY_TEXT, "Version: %hu", deviceVersion);
-						ImGui::TextColored(constants::GRAY_TEXT, "Firmware: %hhu", deviceVariant);
+						ImGui::TextColored(constants::GRAY_TEXT, "Firmware: %hu.%hhu", deviceVersion, deviceVariant);
 					}
 					else
 					{
 						ImGui::TextColored(constants::GRAY_TEXT, "No Labrador board detected");
 					}
 					ImGui::MenuItem("Check firmware", NULL, &flash_firmware_popup);
+					/* // NOTE: Reset device does not work. Oscilloscopes have a minimum constant voltage of ~0.5 V after this reset process below.
+					if (connected && ImGui::MenuItem("Reset Device"))
+					{
+						librador_reset_device();
+						#ifndef NDEBUG
+							printf("Reset finished.\n");
+#endif	
+						std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+						
+						librador_exit();
+						#ifndef NDEBUG
+							printf("librador_exit finished.\n");
+#endif	
+						std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+						int error = librador_init();
+						if (error)
+						{
+#ifndef NDEBUG
+							printf("librador_init FAILED with error code %d\t\n", error);
+#endif
+							// std::exit(error);
+							connected = false;
+						}
+												#ifndef NDEBUG
+							printf("librador_init finished.\n");
+							if (connected) printf("Connected successfully.");
+							else printf("Did not connect successfully.");
+#endif	
+						std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+						librador_reset_usb();
+						#ifndef NDEBUG
+							printf("librador_reset_usb finished.");
+#endif
+						std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+						connectToLabrador(&flash_firmware_popup);
+						#ifndef NDEBUG
+							printf("connectToLabrador finished.");
+#endif
+					}
+*/
 					ImGui::EndMenu();
+						
 				}
+					
 				if (ImGui::BeginMenu("Help"))
 				{
 					ImGui::MenuItem("User Guide", NULL, &showHelpWindow);
@@ -374,9 +415,11 @@ class App : public AppBase<App>
 			{
 				// Show firmware check window
 				uint8_t deviceVariant = librador_get_device_firmware_variant();
+				uint8_t deviceVersion = librador_get_device_firmware_version();
+				const bool desiredFirmware = deviceVariant == constants::DESIRED_FW_VARIANT && deviceVersion == constants::DESIRED_FW_VERSION;
 				float row_height = ImGui::GetFrameHeight();
 				ImGui::SetNextWindowSize(ImVec2(450, row_height * 7));
-				ImGui::PushStyleColor(ImGuiCol_TitleBgActive, (connected && deviceVariant == 2) ? ImVec4(0, 0.55, 0, 1) : ImVec4(0.8, 0, 0, 1));
+				ImGui::PushStyleColor(ImGuiCol_TitleBgActive, (connected &&  desiredFirmware) ? ImVec4(0, 0.55, 0, 1) : ImVec4(0.8, 0, 0, 1));
 				ImGui::Begin("Flash Firmware");
 				if (!ImGui::IsWindowFocused())
 				{
@@ -384,13 +427,15 @@ class App : public AppBase<App>
 				}
 				else
 				{
-					if (connected && deviceVariant != 2)
+					if (connected && !desiredFirmware)
 					{
-						ImGui::TextWrapped("Device detected with invalid firmware variant!");
-						ImGui::TextWrapped("Would you like to flash required firmware variant 2.0?");
+						ImGui::TextWrapped("Device detected with invalid firmware!");
+						ImGui::TextWrapped("Would you like to flash required the desired firmware %hu.%hhu?", constants::DESIRED_FW_VERSION, constants::DESIRED_FW_VARIANT);
 						if (ImGui::Button(" Yes "))
 						{
-							ImGui::TextColored(ImVec4(1, 0, 0, 1), "Flashing variant 2.0... This takes 5 seconds.");
+							ImGui::TextColored(ImVec4(1, 0, 0, 1), "Flashing firmware %hu.%hhu... This takes ~5 seconds.", 
+								constants::DESIRED_FW_VERSION, constants::DESIRED_FW_VARIANT);
+							ImGui::TextColored(ImVec4(1, 0, 0, 1), "After the firmware has been flashed, you may need to restart the application.");
 							flash_firmware_next_frame = true;
 						}
 						ImGui::SameLine();
@@ -400,10 +445,10 @@ class App : public AppBase<App>
 						}
 
 					}
-					else if (connected && deviceVariant == 2)
+					else if (connected && desiredFirmware)
 					{
 						
-						ImGui::TextWrapped("Device detected with valid firmware variant (2.0)");
+						ImGui::TextWrapped("Device detected with valid firmware %hu.%hhu", constants::DESIRED_FW_VERSION, constants::DESIRED_FW_VARIANT);
 						if (ImGui::Button(" OK "))
 						{
 							flash_firmware_popup = false;
@@ -422,13 +467,6 @@ class App : public AppBase<App>
 				ImGui::End();
 			}
 		}
-		// Output framerate for performance metric
-//		if (frames % 30 == 0)
-//		{
-//#ifndef NDEBUG
-//			std::cout << ImGui::GetIO().Framerate << ',';
-//#endif	
-//		}
 		frames++;
     }
 
@@ -557,31 +595,50 @@ class App : public AppBase<App>
 	void flashFirmware()
 	{
 		// Flash Firmware Variant 2 if it is not currently flashed
+		uint16_t deviceVersion = librador_get_device_firmware_version();
 		uint8_t deviceVariant = librador_get_device_firmware_variant();
-		if (deviceVariant != 2 && connected)
+
+		const bool desiredFirmware = deviceVariant == constants::DESIRED_FW_VARIANT && deviceVersion == constants::DESIRED_FW_VERSION;
+
+		if (!desiredFirmware && connected)
 		{
 			librador_jump_to_bootloader();
-#ifdef NDEBUG
-			printf("deviceVariant: %hhu", librador_get_device_firmware_variant());
-			std::filesystem::current_path("./firmware");
+			
+#ifndef NDEBUG
+			printf("FLASHING FIRMWARE: %hu.%hhu ([version].[variant]). CURRENT DETECTED FIRMWARE: %hu.%hhu", 
+				constants::DESIRED_FW_VERSION, constants::DESIRED_FW_VARIANT, deviceVersion, deviceVariant);
+#endif
+#if defined(__APPLE__)
+			std::string firmware_path = getResourcePath("firmware");
+			std::filesystem::current_path(firmware_path);
 			std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-			windows_system("dfu-programmer atxmega32a4u erase --force");
-			windows_system("dfu-programmer atxmega32a4u flash labrafirm_0006_02.hex");
-			windows_system("dfu-programmer atxmega32a4u launch");
+			system("./dfu-programmer-mac atxmega32a4u erase --force");
+			char command[256];
+			snprintf(command, sizeof(command), 
+					"./dfu-programmer-mac atxmega32a4u flash labrafirm_%04hu_%02hhu.hex", 
+					constants::DESIRED_FW_VERSION, 
+					constants::DESIRED_FW_VARIANT);
+			system(command);
+			system("./dfu-programmer-mac atxmega32a4u launch");
 			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-			windows_system("dfu-programmer atxmega32a4u launch");
+			system("./dfu-programmer-mac atxmega32a4u launch");
 			std::filesystem::current_path("..");
 #else
 			std::filesystem::current_path("./firmware");
 			std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-			system("dfu-programmer atxmega32a4u erase --force");
-			system("dfu-programmer atxmega32a4u flash labrafirm_0006_02.hex");
-			system("dfu-programmer atxmega32a4u launch");
+			windows_system("dfu-programmer atxmega32a4u erase --force");
+			char command[256];
+			snprintf(command, sizeof(command), 
+					"dfu-programmer atxmega32a4u flash labrafirm_%04hu_%02hhu.hex", 
+					constants::DESIRED_FW_VERSION, 
+					constants::DESIRED_FW_VARIANT);
+			windows_system(command);
+			windows_system("dfu-programmer atxmega32a4u launch");
 			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-			system("dfu-programmer atxmega32a4u launch");
+			windows_system("dfu-programmer atxmega32a4u launch");
 			std::filesystem::current_path("..");
 #endif
-			librador_reset_usb();
+			librador_reset_usb(); // NOTE: makes OSC channels display constant of 170 mV (on macOS at least) - need to restart app after firmware flash.
 		}
 	}
 
