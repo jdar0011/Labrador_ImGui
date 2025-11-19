@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Options
 option(BUILD_TESTS "Build test suite" OFF)
 option(USE_STATIC_LIBS "Link libraries statically" ON)
+set(CMAKE_BUILD_TYPE "Release") # defines NDEBUG
 
 # System packages
 find_package(OpenGL REQUIRED)
@@ -93,4 +94,8 @@ if(APPLE)
         ${APPKIT_LIBRARY}
         ${SECURITY_LIBRARY}
     )
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_compile_definitions(NDEBUG)
 endif()

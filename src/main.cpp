@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 // handle windows release gui version of the application (no console, so entry point has to be WinMain)
-#ifdef NDEBUG 
+#if !defined(__APPLE__) && defined(NEDBUG)
 #include <Windows.h>
 int main(int argc, char** argv);
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
