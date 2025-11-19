@@ -1,8 +1,10 @@
-﻿# About
+﻿> [!IMPORTANT: Driver Installation]
+> To correctly install device Drivers, please install the original application for the board before using the application. Releases can be found [here](https://github.com/espotek-org/Labrador/releases). Future releases may not require this step.
+
+# About
 
 - This application is a control interface for the [Espotek Labrador Portable Lab Bench](https://espotek.com/labrador/)
 - The primary goals of the design it to be student friendly and accessible, meaning that advanced features are not present
-- The original application for the board can be found [here](https://github.com/EspoTek/Labrador)
 - The application was developed as an ECSE Final Year Project at Monash University
 <p align="center">
   <img src="https://github.com/user-attachments/assets/72207e83-18da-40ee-9f17-82211c3f7350" alt="labrador-controller-home-page" width="750"/>
