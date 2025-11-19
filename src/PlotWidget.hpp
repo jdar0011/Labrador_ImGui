@@ -1253,7 +1253,7 @@ public:
 		// auto sets trigger level
 		if (osc_control->AutoTriggerLevel)
 		{
-			AutoSetTriggerLevel(trigger_channel, trigger_type, &osc_control->TriggerLevel, &osc_control->TriggerHysteresis);
+			AutoSetTriggerLevel(trigger_channel, trigger_type, &osc_control->TriggerLevel);
 		}
 		// handles writing to clipboard and csv files (copying data)
 		HandleWrites();
@@ -1359,7 +1359,7 @@ public:
 		}
 	}
 	void AutoSetTriggerLevel(constants::Channel trigger_channel,
-	    constants::TriggerType trigger_type, SIValue* TriggerLevel, float* TriggerHysteresis)
+	    constants::TriggerType trigger_type, SIValue* TriggerLevel)
 	{
 		double hysteresis_factor = 0.4;
 		OscData* OSCData_ptr;
@@ -1372,16 +1372,6 @@ public:
 			OSCData_ptr = &OSC2Data;
 		}
 		TriggerLevel->setLevel(OSCData_ptr->GetAverage());
-		if (trigger_type == constants::TriggerType::RISING_EDGE)
-		{
-			*TriggerHysteresis
-			    = hysteresis_factor * std::abs((TriggerLevel->getValue() - OSCData_ptr->GetDataMin()));
-		}
-		if (trigger_type == constants::TriggerType::FALLING_EDGE)
-		{
-			*TriggerHysteresis
-			    = hysteresis_factor * std::abs((OSCData_ptr->GetDataMax() - TriggerLevel->getValue()));
-		}
 	}
 	void DrawAndDragTriggers() {
 		ImDrawList* draw_list = ImPlot::GetPlotDrawList();
