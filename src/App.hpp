@@ -17,7 +17,8 @@
 #include <thread>
 #include "NetworkAnalyser.hpp"
 #include "AnalysisToolsWidget.hpp"
-#ifdef NDEBUG
+
+#if !defined(__APPLE__)
 #include <Windows.h>
 int windows_system(const char* cmd) {
 	PROCESS_INFORMATION p_info;

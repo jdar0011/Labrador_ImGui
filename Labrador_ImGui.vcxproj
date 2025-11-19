@@ -126,10 +126,11 @@ xcopy /y /d ".\libs\fftw\libfftw3-3.dll" "$(OutDir)"</Command>
     <ClCompile>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>.\libs;.\libs\fftw;.\libs\glfw\include;.\libs\libusb;.\libs\nfd;.\libs\usynergy;.\libs\imgui;.\libs\librador;.\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\libs;.\libs\fftw;.\libs\glfw\include;.\libs\libusb;.\libs\nfd;.\libs\usynergy;.\libs\imgui;.\libs\librador;.\backends;.\libs\exprtk;.\misc\cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <LanguageStandard_C>Default</LanguageStandard_C>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
