@@ -1,5 +1,5 @@
-﻿> [!IMPORTANT: Driver Installation]
-> To correctly install device Drivers, please install the original application for the board before using the application. Releases can be found [here](https://github.com/espotek-org/Labrador/releases). Future releases may not require this step.
+﻿> [!IMPORTANT]
+> **Driver Installation**: To correctly install device Drivers, please install the original application for the board before using the application. Releases can be found [here](https://github.com/espotek-org/Labrador/releases). Future releases may not require this step.
 
 # About
 
