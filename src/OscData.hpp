@@ -684,17 +684,10 @@ public:
 		// Make a contiguous copy for TVD (in case 'data' has extra capacity or is a view).
 		std::vector<double> periodic_data;
 		periodic_data.assign(data.begin(), data.begin() + N);
-
-		// --- start timing ---
-		auto t_start = std::chrono::high_resolution_clock::now();
 		// You can tune lambda externally; 0.05–0.3 is a common sweet spot.
 		double lambda = 0.1;
 		std::vector<double> x = tv_denoise(periodic_data, lambda);   // denoised signal (length N expected)
 		if (x.size() != N) return NaN();
-		// --- end timing ---
-		auto t_end = std::chrono::high_resolution_clock::now();
-		double elapsed_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-		printf("Section took %.3f ms\n", elapsed_ms);
 
 		// ---- 2) MIDPOINT & HYSTERESIS FROM DENOISED + RESIDUAL NOISE ----
 		// Compute vmin, vmax from the denoised signal (more stable than raw).
@@ -708,8 +701,7 @@ public:
 
 		const double vmid = 0.5 * (vmax + vmin);
 
-		// Estimate residual noise σ from raw - denoised via MAD (robust).
-		// σ ≈ 1.4826 * MAD, MAD = median(|r - median(r)|)
+		// Estimate residual noise from raw - denoised via MAD (robust).
 		auto median_of = [](std::vector<double>& v)->double {
 			if (v.empty()) return std::numeric_limits<double>::quiet_NaN();
 			size_t n = v.size() / 2;
