@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-	<Product Id="*" Name="Labrador" Language="1033" Version="1.0.0.0" Manufacturer="Labrador" UpgradeCode="14247ac5-5200-4af7-8b52-a9d9eff4ee0c">
+	<Product Id="*" Name="LabraScope" Language="1033" Version="1.0.0.0" Manufacturer="Monash University" UpgradeCode="14247ac5-5200-4af7-8b52-a9d9eff4ee0c">
 		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x64" InstallPrivileges="elevated"/>
 
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
@@ -9,7 +9,7 @@
 		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
 		<MediaTemplate EmbedCab="yes"/>
 
-		<Feature Id="ProductFeature" Title="LabradorInstaller" Level="1">
+		<Feature Id="ProductFeature" Title="LabraScopeInstaller" Level="1">
 			<ComponentGroupRef Id="ProductComponents" />
       <ComponentGroupRef Id="FirmwareComponents" />
       <ComponentGroupRef Id="FontsComponents" />
@@ -18,19 +18,36 @@
 		</Feature>
     <Binary Id="DriverInstallerExe" SourceFile="../requirements/Driver_Install.exe" />
     <CustomAction Id="RunDriverInstaller" BinaryKey="DriverInstallerExe" ExeCommand="" Execute="deferred" Return="ignore" Impersonate="no"/>
+    <Binary Id="BootloaderInstallerExe" SourceFile="../requirements/Bootloader_Install.exe" />
+    <CustomAction Id="RunBootloaderInstaller"
+                  BinaryKey="BootloaderInstallerExe"
+                  ExeCommand=""
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no" />
+
+    <Binary Id="GobindarInstallerExe" SourceFile="../requirements/Gobindar_Install.exe" />
+    <CustomAction Id="RunGobindarInstaller"
+                  BinaryKey="GobindarInstallerExe"
+                  ExeCommand=""
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no" />
 
     <Icon Id="icon.ico" SourceFile="../../misc/media/icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="icon.ico" />
 
     <InstallExecuteSequence>
       <Custom Action="RunDriverInstaller" Before="InstallFinalize">NOT Installed</Custom>
+      <Custom Action="RunBootloaderInstaller" Before="InstallFinalize">NOT Installed</Custom>
+      <Custom Action="RunGobindarInstaller"   Before="InstallFinalize">NOT Installed</Custom>
     </InstallExecuteSequence>
 	</Product>
 
 	<Fragment>
 		<Directory Id="TARGETDIR" Name="SourceDir">
 			<Directory Id="ProgramFiles64Folder">
-				<Directory Id="INSTALLFOLDER" Name="Labrador">
+				<Directory Id="INSTALLFOLDER" Name="LabraScope">
 					<Directory Id="firmware" Name="firmware"/>
 					<Directory Id="misc" Name="misc">
 						<Directory Id="fonts" Name="fonts"/>
@@ -41,7 +58,7 @@
       
       <!-- define shortcut -->
       <Directory Id="ProgramMenuFolder">
-        <Directory Id="ApplicationProgramsFolder" Name="Labrador Controller"/>
+        <Directory Id="ApplicationProgramsFolder" Name="LabraScope"/>
       </Directory>
 		</Directory>
   
@@ -50,7 +67,7 @@
 	<Fragment>
 		<ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
 			<Component Id="MainExecutable" Guid="83B3D15B-4FD1-4373-99AA-0D316A7481D8" Win64="yes">
-        <File Id="Labrador_Controller.exe" Source="../../x64/Release/Labrador_Controller.exe" KeyPath="yes"/>
+        <File Id="LabraScope.exe" Source="../../x64/Release/LabraScope.exe" KeyPath="yes"/>
         <File Source="../../x64/Release/libfftw3-3.dll"/>
         <File Source="../../x64/Release/libusb-1.0.dll"/>
         <File Source="../../README.md"/>
@@ -70,6 +87,8 @@
         <File Source="../../firmware/labrafirm_0005_02.hex"/>
         <File Source="../../firmware/labrafirm_0006_01.hex"/>
         <File Source="../../firmware/labrafirm_0006_02.hex"/>
+        <File Source="../../firmware/labrafirm_0007_01.hex"/>
+        <File Source="../../firmware/labrafirm_0007_02.hex"/>
         <File Source="../../firmware/RESET_TO_LC_FIRMWARE.bat"/>
       </Component>
     </ComponentGroup>
@@ -90,15 +109,18 @@
         <File Source="../../misc/fonts/ProggyClean.ttf"/>
         <File Source="../../misc/fonts/ProggyTiny.ttf"/>
         <File Source="../../misc/fonts/Roboto-Medium.ttf"/>
+        <File Source="../../misc/fonts/seguisym.ttf"/>
       </Component>
     </ComponentGroup>
     <ComponentGroup Id="MediaComponents" Directory="media">
       <Component Id="mediaFiles" Guid="3534CE09-F618-4172-935C-D4C68B895375"  Win64="yes">
+        <File Source="../../misc/media/global-pinout.png"/>
         <File Source="../../misc/media/osc-pinout.png"/>
         <File Source="../../misc/media/psu-pinout.png"/>
         <File Source="../../misc/media/sg-pinout.png"/>
         <File Source="../../misc/media/icon64.png"/>
         <File Source="../../misc/media/icon128.png"/>
+        <File Source="../../misc/media/icon256.png"/>
       </Component>
 		</ComponentGroup>
     
@@ -106,9 +128,9 @@
   <DirectoryRef Id="ApplicationProgramsFolder">
     <Component Id="ApplicationShortcut" Guid="E31CDFE3-7DFB-49F0-AA54-17E87455CDF0">
         <Shortcut Id="ApplicationStartMenuShortcut" 
-                  Name="Labrador Controller"
+                  Name="LabraScope"
                   Description="Control interface for the Espotek Labrador board"
-                  Target="[#Labrador_Controller.exe]"
+                  Target="[#LabraScope.exe]"
                   WorkingDirectory="INSTALLFOLDER"/>
         <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
         <RegistryValue Root="HKCU" Key="Software\MyCompany\MyApplicationName" Name="installed" Type="integer" Value="1" KeyPath="yes"/>

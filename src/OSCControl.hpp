@@ -13,6 +13,7 @@
 #include <chrono>
 #include <algorithm>
 #include "implot.h"
+#include "OscData.hpp"
 
 /// <summary>Oscilloscope Control Widget (Plot settings + Math Mode)</summary>
 class OSCControl : public ControlWidget
@@ -22,16 +23,11 @@ public:
     bool DisplayCheckOSC1 = true;
     bool DisplayCheckOSC2 = true;
 
-    // ===== Export controls =====
-    nfdchar_t* OSC1WritePath = NULL;
-    nfdchar_t* OSC2WritePath = NULL;
-    int  OSC1WritePathComboCurrentItem = 0;
-    int  OSC2WritePathComboCurrentItem = 0;
-    bool OSC1ClipboardCopyNext = false;  // PlotWidget can poll these each frame
-    bool OSC2ClipboardCopyNext = false;
-    bool OSC1ClipboardCopied = false;    // request -> �Copied!� flash
-    bool OSC2ClipboardCopied = false;
-    const nfdchar_t* FileExtension = "csv";
+    ExportRowState OSC1ExportState;
+    ExportRowState OSC2ExportState;
+    ExportRowState MathExportState;
+    float ExportPathComboWidth = 100.f;
+    const char* ExportFileExtension = "csv"; // or use your existing FileExtension
 
     // ===== General / Trigger =====
     float OffsetVal = 0.0f;
@@ -87,6 +83,7 @@ public:
         label(label)
     {
     }
+    
 
     /// Render UI elements for oscilloscope control (plot/display/trigger/export + math mode)
     void renderControl() override
@@ -188,18 +185,39 @@ public:
             ImGui::EndTable();
         }
 
-        // --- Export rows ---
-        drawExportRow("OSC1",
-            OSC1WritePathComboCurrentItem,
-            OSC1ClipboardCopied, OSC1ClipboardCopiedFrame,
-            OSC1ClipboardCopyNext,
-            OSC1WritePath, FileExtension);
+        // Get OSC1 data
+        std::vector<double> t1 = OSC1Data->GetTime();
+        std::vector<double> v1 = OSC1Data->GetData();
 
-        drawExportRow("OSC2",
-            OSC2WritePathComboCurrentItem,
-            OSC2ClipboardCopied, OSC2ClipboardCopiedFrame,
-            OSC2ClipboardCopyNext,
-            OSC2WritePath, FileExtension);
+        DrawExportRow2Col("OSC1",
+            OSC1ExportState,
+            t1, v1,
+            "Time", "Voltage",
+            ExportFileExtension,
+            ExportPathComboWidth);
+
+        // Get OSC2 data
+        std::vector<double> t2 = OSC2Data->GetTime();
+        std::vector<double> v2 = OSC2Data->GetData();
+
+        DrawExportRow2Col("OSC2",
+            OSC2ExportState,
+            t2, v2,
+            "Time", "Voltage",
+            ExportFileExtension,
+            ExportPathComboWidth);
+
+        // Get MATH data
+        std::vector<double> tMath = MathData->GetTime();
+        std::vector<double> vMath = MathData->GetData();
+
+        DrawExportRow2Col("Math",
+            MathExportState,
+            tMath, vMath,
+            "Time", "Voltage",
+            ExportFileExtension,
+            ExportPathComboWidth);
+
 
         // --- Math Mode  ---
         ImGui::SeparatorText("Math");
@@ -248,13 +266,10 @@ public:
 
     bool controlLab() override { return false; }
 
-    // PlotWidget can poll these:
-    bool ShouldCopyOSC1ToClipboard() const { return OSC1ClipboardCopyNext; }
-    bool ShouldCopyOSC2ToClipboard() const { return OSC2ClipboardCopyNext; }
-    void ClearCopyFlags() { OSC1ClipboardCopyNext = OSC2ClipboardCopyNext = false; }
 
 private:
     const std::string label;
+	
 
     // Trigger type list
     const char* TriggerTypeComboList[4] = {
@@ -262,44 +277,6 @@ private:
         "OSC2 Rising Edge", "OSC2 Falling Edge"
     };
 
-    // Export helpers
-    float OSCWritePathComboWidth = 100.f;
-    const char* OSCWritePathComboList[2] = { "clipboard", "csv" };
-    int OSC1ClipboardCopiedFrame = -1000;
-    int OSC2ClipboardCopiedFrame = -1000;
-    int OSCClipboardCopiedLinger = 50;
-
-    void drawExportRow(const char* which,
-        int& destComboIdx, bool& copiedFlag, int& copiedFrame,
-        bool& copyNext, nfdchar_t*& path, const nfdchar_t* ext)
-    {
-        std::string btnLabel = std::string("Export ") + which;
-        if (copiedFlag) { copiedFrame = ImGui::GetFrameCount(); copiedFlag = false; }
-        if ((ImGui::GetFrameCount() - copiedFrame) < OSCClipboardCopiedLinger) btnLabel = "Copied!";
-
-        if (WhiteOutlineButton((btnLabel + std::string("##") + which + "ExportButton").c_str(), ImVec2(100, 30)))
-        {
-            if (destComboIdx == 0) // clipboard
-            {
-                copyNext = true;
-            }
-            else // csv
-            {
-                nfdresult_t result = NFD_SaveDialog(ext, NULL, &path);
-#ifndef NDEBUG
-                if (result == NFD_OKAY) { puts("Success!"); puts(path); }
-                else if (result == NFD_CANCEL) { puts("User pressed cancel."); }
-                else { printf("Error: %s\n", NFD_GetError()); }
-#endif
-            }
-        }
-        ImGui::SameLine();
-        ImGui::Text("to");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(OSCWritePathComboWidth);
-        ImGui::Combo((std::string("##") + which + "WritePathCombo").c_str(),
-            &destComboIdx, OSCWritePathComboList, IM_ARRAYSIZE(OSCWritePathComboList));
-    }
 
     // MiniHLInput rules (unchanged)
     std::vector<MiniHLRule> rules = {

@@ -8,6 +8,7 @@
 #include "AcquireState.hpp"
 #include "NetworkAnalyser.hpp"
 #include <chrono>
+#include "nfd.h"
 
 /// <summary>
 /// Adapted from https://github.com/ocornut/imgui/issues/1537#issuecomment-355562097
@@ -668,4 +669,72 @@ static bool DrawNetworkAcquireButton(
 
 	return clicked;
 }
+void DrawExportRow2Col(const char* whichLabel,    // "OSC1", "Spectrum", etc.
+	ExportRowState& state,
+	const std::vector<double>& x,
+	const std::vector<double>& y,
+	const char* xHeader,       // e.g. "Time" or "Frequency"
+	const char* yHeader,       // e.g. "Voltage" or "Magnitude"
+	const char* fileExtension, // e.g. "csv"
+	float comboWidth = 100.f,
+	float buttonWidth = 100.f)
+{
+	const char* destList[] = { "clipboard", "csv" };
+
+	// ----- Button label & status flash -----
+	std::string btnLabel = std::string("Export ") + whichLabel;
+	int frame = ImGui::GetFrameCount();
+
+	if (state.copiedFlag) {
+		state.copiedFrame = frame;
+		state.copiedFlag = false;
+	}
+	if ((frame - state.copiedFrame) < state.copiedLingerFrames) {
+		// Show different text depending on what we just did
+		btnLabel = state.lastWasClipboard ? "Copied!" : "Saved!";
+	}
+
+	// ----- Export button -----
+	if (WhiteOutlineButton((btnLabel + "##" + whichLabel + "ExportButton").c_str(),
+		ImVec2(buttonWidth, 30)))
+	{
+		if (state.destComboIdx == 0) {
+			// Clipboard
+			if (Export2ColToClipboard(x, y, xHeader, yHeader)) {
+				state.lastWasClipboard = true;
+				state.copiedFlag = true;
+			}
+		}
+		else {
+			// CSV via NFD
+			nfdchar_t* path = nullptr;
+			nfdresult_t result = NFD_SaveDialog(fileExtension, nullptr, &path);
+#ifndef NDEBUG
+			if (result == NFD_OKAY) { puts("Save dialog OK"); puts(path); }
+			else if (result == NFD_CANCEL) { puts("User pressed cancel."); }
+			else { printf("Error: %s\n", NFD_GetError()); }
+#endif
+			if (result == NFD_OKAY && path) {
+				if (Export2ColToCsvFile(path, fileExtension, x, y, xHeader, yHeader)) {
+					state.lastWasClipboard = false;
+					state.copiedFlag = true;
+				}
+				// NFD allocates; free with appropriate call for your NFD version
+				free(path); // or NFD_FreePath(path);
+			}
+		}
+	}
+
+	// ----- "to [combo]" -----
+	ImGui::SameLine();
+	ImGui::Text("to");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(comboWidth);
+	ImGui::Combo((std::string("##") + whichLabel + "ExportDestCombo").c_str(),
+		&state.destComboIdx,
+		destList,
+		IM_ARRAYSIZE(destList));
+}
+
+
 #endif

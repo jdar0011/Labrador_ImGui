@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 #include "util.h"
+#include "OscData.hpp"
 
 
 /// <summary>
@@ -30,6 +31,17 @@ public:
 	    , pinout_width(0)
 	    , pinout_texture((intptr_t)0)
 	{}
+	void SetOscs(OscData* Osc1Data, OscData* Osc2Data, OscData* MathData)
+	{
+		this->OSC1Data = Osc1Data;
+		this->OSC2Data = Osc2Data;
+		this->MathData = MathData;
+	}
+	void SetPlots(SpectrumPlots* spectrum_plots, NetworkPlots* network_plots)
+	{
+		this->spectrum_plots = spectrum_plots;
+		this->network_plots = network_plots;
+	}
 
 	/// <summary>
 	/// Update size of child window
@@ -274,13 +286,18 @@ protected:
 	const std::string label;
 	ImVec2 size;
 	const float* accentColour;
-	
+	OscData* OSC1Data = nullptr;
+	OscData* OSC2Data = nullptr;
+	OscData* MathData = nullptr;
+	SpectrumPlots* spectrum_plots = nullptr;
+	NetworkPlots* network_plots = nullptr;
 private:
 	const std::string help_popup_id;
 	float WidgetHeight = 0;
 	std::vector<TreeNode> help_trees;
 	intptr_t pinout_texture;
 	int pinout_width, pinout_height;
+	
 };
 
 /// <summary>
