@@ -384,6 +384,124 @@ ImVec4 GetPlotColour(PlotColour c) {
 	}
 }
 
+bool CheckIfInSafetyMode()
+{
+	int channel = 1;
+	double time_window = 0.5;
+	double sample_rate_hz = 30;
+	double delay = 0;
+	int filter_mode = 0;
+	double safety_mode_data_value = -10.174999999999999;
+	std::vector<double>* data = librador_get_analog_data(channel, time_window, sample_rate_hz, delay, filter_mode);
+	if (data != nullptr)
+	{
+		for (int i = 0; i < data->size(); i++)
+		{
+			if ((*data)[i] != safety_mode_data_value)
+			{
+				return false;
+			}
+		}
+	}
+	else
+	{
+		return false;
+	}
+	return true;
+}
+bool CheckIfInUninitialisedMode()
+{
+	int channel = 1;
+	double time_window = 0.5;
+	double sample_rate_hz = 30;
+	double delay = 0;
+	int filter_mode = 0;
+
+	std::vector<double>* data =
+		librador_get_analog_data(channel, time_window, sample_rate_hz, delay, filter_mode);
+
+	if (data == nullptr || data->empty())
+		return false;
+
+	// Take the first sample as reference
+	double first = (*data)[0];
+
+	for (double v : *data)
+	{
+		if (v != first)
+			return false;   // not constant
+	}
+
+	return true; // all values are identical
+
+}
+// Export Stuff
+std::string BuildDelimited2Col(const std::vector<double>& x,
+	const std::vector<double>& y,
+	const char* xHeader,
+	const char* yHeader,
+	char sep)
+{
+	std::string s;
+	s.reserve(64 + x.size() * 32);
+
+	s += xHeader ? xHeader : "X";
+	s += sep;
+	s += yHeader ? yHeader : "Y";
+	s += '\n';
+
+	const size_t n = std::min(x.size(), y.size());
+	for (size_t i = 0; i < n; ++i) {
+		s += std::to_string(x[i]);
+		s += sep;
+		s += std::to_string(y[i]);
+		s += '\n';
+	}
+	return s;
+}
+
+bool Export2ColToClipboard(const std::vector<double>& x,
+	const std::vector<double>& y,
+	const char* xHeader,
+	const char* yHeader)
+{
+	// NOTE: allow empty data; BuildDelimited2Col will then emit header-only.
+	std::string clipboardStr = BuildDelimited2Col(x, y, xHeader, yHeader, '\t');
+	ImGui::SetClipboardText(clipboardStr.c_str());
+	return true;
+}
+
+bool Export2ColToCsvFile(const char* basePath,
+	const char* fileExtension,
+	const std::vector<double>& x,
+	const std::vector<double>& y,
+	const char* xHeader,
+	const char* yHeader)
+{
+	if (!basePath || !*basePath)
+		return false; // still need a valid path
+
+	// Allow empty x/y: header-only CSV is fine.
+	std::string path(basePath);
+
+	std::string ext = ".";
+	ext += (fileExtension && *fileExtension) ? fileExtension : "csv";
+
+	if (path.size() < ext.size() ||
+		path.compare(path.size() - ext.size(), ext.size(), ext) != 0)
+	{
+		path += ext;
+	}
+
+	std::ofstream file(path);
+	if (!file.is_open())
+		return false;
+
+	std::string fileStr = BuildDelimited2Col(x, y, xHeader, yHeader, ',');
+	file << fileStr;
+	return true;
+}
+
 
 
 

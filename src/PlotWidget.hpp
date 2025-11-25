@@ -74,6 +74,7 @@ public:
 		}
 	}
 
+
 	/// <summary>
 	/// Generic function to render plot widget with correct style
 	/// </summary>
@@ -134,12 +135,12 @@ public:
 		if (plot_count <= 0) plot_count = 1;
 
 		// --- Divide vertical space evenly ---
-		float per_plot_height = usable_height / (float)plot_count;
+		float per_plot_height = usable_height / (float)plot_count - 3; // don't know why it overflows plot area, reduce per_plot_height by 3 to fix it
 
 		// Optional: enforce a minimum plot height
 		const float min_plot_h = 120.0f;
-		if (per_plot_height < min_plot_h && usable_height > 0.0f) {
-			per_plot_height = std::min(min_plot_h, usable_height / (float)plot_count);
+		if (per_plot_height < min_plot_h) {
+			per_plot_height = min_plot_h;
 		}
 
 		// --- Sizes for each plot section ---
@@ -174,8 +175,8 @@ public:
 		
 		ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(255, 255, 255, 255));
 		UpdateOscData();
-		std::vector<double> analog_data_osc1 = OSC1Data.GetData();
-		std::vector<double> analog_data_osc2 = OSC2Data.GetData();
+		std::vector<double> analog_data_osc1 = OSC1Data->GetData();
+		std::vector<double> analog_data_osc2 = OSC2Data->GetData();
 		
 		ImPlot::SetNextAxesLimits(init_time_range_lower, init_time_range_upper,
 		    init_voltage_range_lower, init_voltage_range_upper, ImPlotCond_Once);
@@ -262,8 +263,8 @@ public:
 			// If none are visible, reset to default
 			if (osc_control->AutofitX)
 			{
-				double T_osc1 = OSC1Data.GetTimeBetweenTriggers();
-				double T_osc2 = OSC2Data.GetTimeBetweenTriggers();
+				double T_osc1 = OSC1Data->GetTimeBetweenTriggers();
+				double T_osc2 = OSC2Data->GetTimeBetweenTriggers();
 				double T = init_time_range_upper;
 				if (osc_control->DisplayCheckOSC1 && !osc_control->DisplayCheckOSC2)
 				{
@@ -299,8 +300,8 @@ public:
 				double osc2_min;
 				if (osc_control->DisplayCheckOSC1) // set to actual max and min only if the oscilloscope channel is visible
 				{
-					osc1_max = OSC1Data.GetDataMax();
-					osc1_min = OSC1Data.GetDataMin();
+					osc1_max = OSC1Data->GetDataMax();
+					osc1_min = OSC1Data->GetDataMin();
 				}
 				else // else set to opposite extremes so that it always loses on comparison
 				{
@@ -309,8 +310,8 @@ public:
 				}
 				if (osc_control->DisplayCheckOSC2) // set to actual max and min only if the oscilloscope channel is visible
 				{
-					osc2_max = OSC2Data.GetDataMax();
-					osc2_min = OSC2Data.GetDataMin();
+					osc2_max = OSC2Data->GetDataMax();
+					osc2_min = OSC2Data->GetDataMin();
 				}
 				else // else set to opposite extremes so that it always loses on comparison
 				{
@@ -333,7 +334,7 @@ public:
 				next_autofitY = true;
 			}
 			// Plot oscilloscope 1 signal
-			std::vector<double> time_osc1 = OSC1Data.GetTime();
+			std::vector<double> time_osc1 = OSC1Data->GetTime();
 			if (osc_control->DisplayCheckOSC1)
 			{
 				ImPlot::SetNextLineStyle(osc_control->OSC1Colour.Value); // bugfixed: only set colour if line is being draw.
@@ -341,9 +342,9 @@ public:
 					analog_data_osc1.size());
 			}
 			// Set OscData Time Vector to match the current X-axis
-			OSC1Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
+			OSC1Data->SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
 			// Plot Oscilloscope 2 Signal
-			std::vector<double> time_osc2 = OSC2Data.GetTime();
+			std::vector<double> time_osc2 = OSC2Data->GetTime();
 			if (osc_control->DisplayCheckOSC2)
 			{
 				ImPlot::SetNextLineStyle(osc_control->OSC2Colour.Value);
@@ -351,7 +352,7 @@ public:
 					analog_data_osc2.size());
 			}
 			// Set OscData Time Vector to match the current X-axis
-			OSC2Data.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
+			OSC2Data->SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max);
 			// Plot Math Signal
 			// --- Math Signal ---
 			// choose a time base
@@ -381,25 +382,25 @@ public:
 
 					// if result is empty or time base is empty, clear and bail
 					if (math_data.empty() || time_math.empty()) {
-						MathData.SetData({});                 // <<< clear stale MATH buffer
+						MathData->SetData({});                 // <<< clear stale MATH buffer
 					}
 					else {
 						// update MathData only when we actually have samples to show
-						MathData.SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max, time_math);
-						MathData.SetData(math_data);
+						MathData->SetTime(ImPlot::GetPlotLimits().X.Min, ImPlot::GetPlotLimits().X.Max, time_math);
+						MathData->SetData(math_data);
 						ImPlot::SetNextLineStyle(osc_control->MathColour.Value);
 						ImPlot::PlotLine("##Math", time_math.data(), math_data.data(), (int)math_data.size());
 					}
 				}
 				else {
 					// toggle is OFF → clear any previous math samples
-					MathData.SetData({});                     // <<< clear when OFF
+					MathData->SetData({});                     // <<< clear when OFF
 				}
 			}
 			else {
 				// parse failed → not parsable, clear any previous math samples
 				osc_control->MathControls1.Parsable = false;
-				MathData.SetData({});                         // <<< clear on parse failure
+				MathData->SetData({});                         // <<< clear on parse failure
 			}
 
 			// Plot cursors
@@ -422,8 +423,8 @@ public:
 			const float tw = analysis_tools_widget->SA.TimeWindow;
 			const int   widx = analysis_tools_widget->SA.WindowComboCurrentItem;
 
-			OSC1Data.PerformSpectrumAnalysis(sr, tw, widx);
-			OSC2Data.PerformSpectrumAnalysis(sr, tw, widx);
+			OSC1Data->PerformSpectrumAnalysis(sr, tw, widx);
+			OSC2Data->PerformSpectrumAnalysis(sr, tw, widx);
 
 			analysis_tools_widget->SA.OSC1_last_captured = tw;
 			analysis_tools_widget->SA.OSC2_last_captured = tw;
@@ -438,24 +439,24 @@ public:
 		switch (analysis_tools_widget->SA.UnitsComboCurrentItem) {
 		default:
 		case 0: // dBm
-			mag1 = OSC1Data.GetSpectrumMagdBm_p();
-			mag2 = OSC2Data.GetSpectrumMagdBm_p();
+			mag1 = OSC1Data->GetSpectrumMagdBm_p();
+			mag2 = OSC2Data->GetSpectrumMagdBm_p();
 			magnitude_range = magnitude_db_range;
 			break;
 		case 1: // dBV
-			mag1 = OSC1Data.GetSpectrumMagdBV_p();
-			mag2 = OSC2Data.GetSpectrumMagdBV_p();
+			mag1 = OSC1Data->GetSpectrumMagdBV_p();
+			mag2 = OSC2Data->GetSpectrumMagdBV_p();
 			magnitude_range = magnitude_db_range;
 			break;
 		case 2: // V RMS
-			mag1 = OSC1Data.GetSpectrumMag_p();
-			mag2 = OSC2Data.GetSpectrumMag_p();
+			mag1 = OSC1Data->GetSpectrumMag_p();
+			mag2 = OSC2Data->GetSpectrumMag_p();
 			magnitude_range = magnitude_VRMS_range;
 			break;
 		}
 
-		std::vector<double>* f1 = OSC1Data.GetSpectrumFreq_p();
-		std::vector<double>* f2 = OSC2Data.GetSpectrumFreq_p();
+		std::vector<double>* f1 = OSC1Data->GetSpectrumFreq_p();
+		std::vector<double>* f2 = OSC2Data->GetSpectrumFreq_p();
 
 		const bool has1 = (mag1 && !mag1->empty() && f1 && f1->size() >= 2);
 		const bool has2 = (mag2 && !mag2->empty() && f2 && f2->size() >= 2);
@@ -512,131 +513,151 @@ public:
 				else { constraint_mag_lower = magnitude_range.constraint_lower; constraint_mag_upper = magnitude_range.constraint_upper; }
 			}
 
-			// Decimated traces per channel (persist across frames)
-			static PlotTrace spectrum_plot_data_osc1;
-			static PlotTrace spectrum_plot_data_osc2;
+			// Only do spectrum plotting if shared spectrum_plots has been wired up
+			if (spectrum_plots) {
+				PlotTrace& spectrum_plot_data_osc1 = spectrum_plots->osc1;
+				PlotTrace& spectrum_plot_data_osc2 = spectrum_plots->osc2;
 
-			// State remembered for re-decimation / refit
-			static double last_x_min = init_freq_range_lower;
-			static double last_x_max = init_freq_range_upper;
-			static int    prev_units = analysis_tools_widget->SA.UnitsComboCurrentItem;
-			static bool   prev_disp1 = analysis_tools_widget->SA.DisplayOSC1;
-			static bool   prev_disp2 = analysis_tools_widget->SA.DisplayOSC2;
-			static size_t prev_n1 = 0, prev_n2 = 0;
-			static double prev_f1_last = 0.0, prev_f2_last = 0.0;
-			static bool   first_plot = true;
+				// State remembered for re-decimation / refit
+				static double last_x_min = init_freq_range_lower;
+				static double last_x_max = init_freq_range_upper;
+				static int    prev_units = analysis_tools_widget->SA.UnitsComboCurrentItem;
+				static bool   prev_disp1 = analysis_tools_widget->SA.DisplayOSC1;
+				static bool   prev_disp2 = analysis_tools_widget->SA.DisplayOSC2;
+				static size_t prev_n1 = 0, prev_n2 = 0;
+				static double prev_f1_last = 0.0, prev_f2_last = 0.0;
+				static bool   first_plot = true;
 
-			// Data-change detector
-			const bool data_changed =
-				prev_n1 != (has1 ? f1->size() : 0) ||
-				prev_n2 != (has2 ? f2->size() : 0) ||
-				prev_f1_last != (has1 ? f1->back() : 0.0) ||
-				prev_f2_last != (has2 ? f2->back() : 0.0);
+				// Data-change detector
+				const bool data_changed =
+					prev_n1 != (has1 ? f1->size() : 0) ||
+					prev_n2 != (has2 ? f2->size() : 0) ||
+					prev_f1_last != (has1 ? f1->back() : 0.0) ||
+					prev_f2_last != (has2 ? f2->back() : 0.0);
 
-			if (ImPlot::BeginPlot("##SpectrumMagnitude", plot_size_spectrum_magnitude, spectrum_base_plot_flags)) {
-				ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"Hz");
+				if (ImPlot::BeginPlot("##SpectrumMagnitude", plot_size_spectrum_magnitude, spectrum_base_plot_flags)) {
+					ImPlot::SetupAxisFormat(ImAxis_X1, MetricFormatter, (void*)"Hz");
 
-				// --- Y-axis formatting & label ---
-				const int unit = analysis_tools_widget->SA.UnitsComboCurrentItem;
-				const char* y_label =
-					(unit == 0) ? "Magnitude (dBm)" :
-					(unit == 1) ? "Magnitude (dBV)" :
-					"Magnitude (V)";
+					// --- Y-axis formatting & label ---
+					const int unit = analysis_tools_widget->SA.UnitsComboCurrentItem;
+					const char* y_label =
+						(unit == 0) ? "Magnitude (dBm)" :
+						(unit == 1) ? "Magnitude (dBV)" :
+						"Magnitude (V)";
 
-				switch (unit) {
-				case 0: // dBm
-					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dBm");
-					break;
-				case 1: // dBV
-					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dBV");
-					break;
-				case 2: // V RMS
-					ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
-					break;
+					switch (unit) {
+					case 0: // dBm
+						ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dBm");
+						break;
+					case 1: // dBV
+						ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"dBV");
+						break;
+					case 2: // V RMS
+						ImPlot::SetupAxisFormat(ImAxis_Y1, MetricFormatter, (void*)"V");
+						break;
+					}
+
+					ImPlot::SetupAxesLimits(init_freq_range_lower, init_freq_range_upper,
+						magnitude_range.init_lower, magnitude_range.init_upper,
+						ImPlotCond_Once);
+
+					if (first_plot ||
+						analysis_tools_widget->SA.Autofit ||
+						analysis_tools_widget->SA.Acquire ||
+						data_changed ||
+						prev_units != analysis_tools_widget->SA.UnitsComboCurrentItem) {
+						ImPlot::SetupAxesLimits(combined_xmin, combined_xmax,
+							combined_ymin, combined_ymax,
+							ImGuiCond_Always);
+						first_plot = false;
+					}
+
+					ImPlot::SetupAxes("Frequency (Hz)", y_label,
+						ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
+					ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
+
+					if (!has1 && !has2) {
+						ImPlot::SetupAxisLimitsConstraints(ImAxis_X1,
+							init_freq_range_lower,
+							init_freq_range_upper);
+						ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1,
+							magnitude_range.constraint_lower,
+							magnitude_range.constraint_upper);
+					}
+					else {
+						ImPlot::SetupAxisLimitsConstraints(ImAxis_X1,
+							combined_xmin, combined_xmax);
+						ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1,
+							constraint_mag_lower,
+							constraint_mag_upper);
+					}
+
+					// Re-decimate when needed (user zoom/pan or data change)
+					const bool must_redecimate =
+						analysis_tools_widget->SA.Autofit ||
+						analysis_tools_widget->SA.Acquire ||
+						(prev_units != analysis_tools_widget->SA.UnitsComboCurrentItem) ||
+						(prev_disp1 != analysis_tools_widget->SA.DisplayOSC1) ||
+						(prev_disp2 != analysis_tools_widget->SA.DisplayOSC2) ||
+						(last_x_min != ImPlot::GetPlotLimits().X.Min) ||
+						(last_x_max != ImPlot::GetPlotLimits().X.Max) ||
+						data_changed;
+
+					if (must_redecimate) {
+						if (has1)
+							spectrum_plot_data_osc1 = DecimateLogPlotTrace(*f1, *mag1);
+						else
+							spectrum_plot_data_osc1 = PlotTrace{};
+
+						if (has2)
+							spectrum_plot_data_osc2 = DecimateLogPlotTrace(*f2, *mag2);
+						else
+							spectrum_plot_data_osc2 = PlotTrace{};
+
+						last_x_min = ImPlot::GetPlotLimits().X.Min;
+						last_x_max = ImPlot::GetPlotLimits().X.Max;
+						prev_units = analysis_tools_widget->SA.UnitsComboCurrentItem;
+						prev_disp1 = analysis_tools_widget->SA.DisplayOSC1;
+						prev_disp2 = analysis_tools_widget->SA.DisplayOSC2;
+						prev_n1 = has1 ? f1->size() : 0;
+						prev_n2 = has2 ? f2->size() : 0;
+						prev_f1_last = has1 ? f1->back() : 0.0;
+						prev_f2_last = has2 ? f2->back() : 0.0;
+					}
+
+					// Plot enabled channels
+					if (analysis_tools_widget->SA.DisplayOSC1 && !spectrum_plot_data_osc1.x.empty()) {
+						ImPlot::SetNextLineStyle(analysis_tools_widget->OSC1Colour);
+						ImPlot::PlotLine("##SpectrumOSC1",
+							spectrum_plot_data_osc1.x.data(),
+							spectrum_plot_data_osc1.y.data(),
+							(int)spectrum_plot_data_osc1.y.size());
+					}
+					if (analysis_tools_widget->SA.DisplayOSC2 && !spectrum_plot_data_osc2.x.empty()) {
+						ImPlot::SetNextLineStyle(analysis_tools_widget->OSC2Colour);
+						ImPlot::PlotLine("##SpectrumOSC2",
+							spectrum_plot_data_osc2.x.data(),
+							spectrum_plot_data_osc2.y.data(),
+							(int)spectrum_plot_data_osc2.y.size());
+					}
+
+					// Draw semi-transparent "Spectrum" label in top-left
+					{
+						const ImPlotRect lim = ImPlot::GetPlotLimits();
+						ImPlot::PushStyleColor(ImPlotCol_InlayText, ImVec4(1, 1, 1, 0.40f));   // semi-transparent white
+						ImPlot::Annotation(
+							lim.X.Min, lim.Y.Max,                      // top-left in plot coords
+							ImVec4(0, 0, 0, 0),                        // col.w==0 -> use InlayText, no bg
+							ImVec2(8, -6),                             // pixel offset (right, up)
+							/*clamp=*/true,
+							"Spectrum"
+						);
+						ImPlot::PopStyleColor();
+					}
+
+					ImPlot::EndPlot();
 				}
-
-				ImPlot::SetupAxesLimits(init_freq_range_lower, init_freq_range_upper,
-					magnitude_range.init_lower, magnitude_range.init_upper,
-					ImPlotCond_Once);
-
-				if (first_plot ||
-					analysis_tools_widget->SA.Autofit ||
-					analysis_tools_widget->SA.Acquire ||
-					data_changed ||
-					prev_units != analysis_tools_widget->SA.UnitsComboCurrentItem) {
-					ImPlot::SetupAxesLimits(combined_xmin, combined_xmax, combined_ymin, combined_ymax, ImGuiCond_Always);
-					first_plot = false;
-				}
-
-				ImPlot::SetupAxes("Frequency (Hz)", y_label, ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
-				ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
-
-				if (!has1 && !has2) {
-					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, init_freq_range_lower, init_freq_range_upper);
-					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, magnitude_range.constraint_lower, magnitude_range.constraint_upper);
-				}
-				else {
-					ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, combined_xmin, combined_xmax);
-					ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, constraint_mag_lower, constraint_mag_upper);
-				}
-
-				// Re-decimate when needed (user zoom/pan or data change)
-				const bool must_redecimate =
-					analysis_tools_widget->SA.Autofit || analysis_tools_widget->SA.Acquire ||
-					(prev_units != analysis_tools_widget->SA.UnitsComboCurrentItem) ||
-					(prev_disp1 != analysis_tools_widget->SA.DisplayOSC1) ||
-					(prev_disp2 != analysis_tools_widget->SA.DisplayOSC2) ||
-					(last_x_min != ImPlot::GetPlotLimits().X.Min) ||
-					(last_x_max != ImPlot::GetPlotLimits().X.Max) ||
-					data_changed;
-
-				if (must_redecimate) {
-					if (has1) spectrum_plot_data_osc1 = DecimateLogPlotTrace(*f1, *mag1); else spectrum_plot_data_osc1 = PlotTrace{};
-					if (has2) spectrum_plot_data_osc2 = DecimateLogPlotTrace(*f2, *mag2); else spectrum_plot_data_osc2 = PlotTrace{};
-
-					last_x_min = ImPlot::GetPlotLimits().X.Min;
-					last_x_max = ImPlot::GetPlotLimits().X.Max;
-					prev_units = analysis_tools_widget->SA.UnitsComboCurrentItem;
-					prev_disp1 = analysis_tools_widget->SA.DisplayOSC1;
-					prev_disp2 = analysis_tools_widget->SA.DisplayOSC2;
-					prev_n1 = has1 ? f1->size() : 0;
-					prev_n2 = has2 ? f2->size() : 0;
-					prev_f1_last = has1 ? f1->back() : 0.0;
-					prev_f2_last = has2 ? f2->back() : 0.0;
-				}
-
-				// Plot enabled channels
-				if (analysis_tools_widget->SA.DisplayOSC1 && !spectrum_plot_data_osc1.x.empty()) {
-					ImPlot::SetNextLineStyle(analysis_tools_widget->OSC1Colour);
-					ImPlot::PlotLine("##SpectrumOSC1",
-						spectrum_plot_data_osc1.x.data(),
-						spectrum_plot_data_osc1.y.data(),
-						(int)spectrum_plot_data_osc1.y.size());
-				}
-				if (analysis_tools_widget->SA.DisplayOSC2 && !spectrum_plot_data_osc2.x.empty()) {
-					ImPlot::SetNextLineStyle(analysis_tools_widget->OSC2Colour);
-					ImPlot::PlotLine("##SpectrumOSC2",
-						spectrum_plot_data_osc2.x.data(),
-						spectrum_plot_data_osc2.y.data(),
-						(int)spectrum_plot_data_osc2.y.size());
-				}
-				// Draw semi-transparent "Spectrum" label in top-left
-				{
-					const ImPlotRect lim = ImPlot::GetPlotLimits();
-					ImPlot::PushStyleColor(ImPlotCol_InlayText, ImVec4(1, 1, 1, 0.40f));   // semi-transparent white
-					ImPlot::Annotation(
-						lim.X.Min, lim.Y.Max,                      // top-left in plot coords
-						ImVec4(0, 0, 0, 0),                        // col.w==0 -> use InlayText, no bg
-						ImVec2(8, -6),                             // pixel offset (right, up)
-						/*clamp=*/true,
-						"Spectrum"
-					);
-					ImPlot::PopStyleColor();
-				}
-
-
-				ImPlot::EndPlot();
-			}
+			} 
 		}
 
 
@@ -851,7 +872,9 @@ public:
 		{
 			network_was_off = true;
 		}
-
+		network_plots->freq = na_freq;
+		network_plots->mag = na_mag;
+		network_plots->phase = na_phase;
 
 
 		
@@ -887,7 +910,7 @@ public:
 		if (osc_control->SignalPropertiesToggle)
 		{
 			DrawSignalPropertiesPanel(
-				std::vector<OscData>{ OSC1Data, OSC2Data, MathData },
+				std::vector<OscData>{ *OSC1Data, *OSC2Data, *MathData },
 				std::vector<ImVec4>{
 				osc_control->OSC1Colour.Value,
 					osc_control->OSC2Colour.Value,
@@ -897,7 +920,7 @@ public:
 		}
 		ImGui::PopStyleColor();
 
-		OSC1Data.GetPeriod();
+		OSC1Data->GetPeriod();
 
 	}
 	// ===== Helpers =====
@@ -1043,11 +1066,11 @@ public:
 							ImGui::TableSetColumnIndex(C_T);   ValueCellOrDash(std::isfinite(T) ? (1000.0 * T) : T, "%.1f");
 							ImGui::TableSetColumnIndex(C_F);   ValueCellOrDash(f, "%.1f");
 
-							ImGui::TableSetColumnIndex(C_VPP);  ValueCellOrDash(s.GetVpp(), "%.1f");
-							ImGui::TableSetColumnIndex(C_VMAX); ValueCellOrDash(s.GetVmax(), "%.1f");
-							ImGui::TableSetColumnIndex(C_VMIN); ValueCellOrDash(s.GetVmin(), "%.1f");
-							ImGui::TableSetColumnIndex(C_VAVG); ValueCellOrDash(s.GetVavg(), "%.1f");
-							ImGui::TableSetColumnIndex(C_VRMS); ValueCellOrDash(s.GetVrms(), "%.1f");
+							ImGui::TableSetColumnIndex(C_VPP);  ValueCellOrDash(s.GetVpp(), "%.2f");
+							ImGui::TableSetColumnIndex(C_VMAX); ValueCellOrDash(s.GetVmax(), "%.2f");
+							ImGui::TableSetColumnIndex(C_VMIN); ValueCellOrDash(s.GetVmin(), "%.2f");
+							ImGui::TableSetColumnIndex(C_VAVG); ValueCellOrDash(s.GetVavg(), "%.2f");
+							ImGui::TableSetColumnIndex(C_VRMS); ValueCellOrDash(s.GetVrms(), "%.2f");
 						}
 					}
 
@@ -1208,154 +1231,52 @@ public:
 	void UpdateOscData()
 	{
 		// sets whether the osc is paused or not (if paused, data will not update)
-		OSC1Data.SetPaused(osc_control->Paused);
-		OSC2Data.SetPaused(osc_control->Paused);
+		OSC1Data->SetPaused(osc_control->Paused);
+		OSC2Data->SetPaused(osc_control->Paused);
 		// sets the time that the trigger on the plot will trigger (basically the time where the trigger marker on the plot is; defaults at 0)
-		OSC1Data.SetTriggerTimePlot(trigger_time_plot);
-		OSC2Data.SetTriggerTimePlot(trigger_time_plot);
+		OSC1Data->SetTriggerTimePlot(trigger_time_plot);
+		OSC2Data->SetTriggerTimePlot(trigger_time_plot);
 		// sets the entire vector which will be used to plot (including part cut off due to trigger)
-		OSC1Data.SetExtendedData();
-		OSC2Data.SetExtendedData();
+		OSC1Data->SetExtendedData();
+		OSC2Data->SetExtendedData();
 		constants::Channel trigger_channel = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).channel;
 		constants::TriggerType trigger_type = maps::ComboItemToChannelTriggerPair.at(osc_control->TriggerTypeComboCurrentItem).trigger_type;
 		// calculates the time that the trigger occurs in the extended_data vector depending on which channel is triggering
 		double trigger_time = 0;
 		// sets trigger variable for each osc (this is a bit hacky but whatever)
-		OSC1Data.SetTriggerOn(osc_control->Trigger);
-		OSC2Data.SetTriggerOn(osc_control->Trigger);
+		OSC1Data->SetTriggerOn(osc_control->Trigger);
+		OSC2Data->SetTriggerOn(osc_control->Trigger);
 		if (trigger_channel == constants::Channel::OSC1)
 		{
-			trigger_time = OSC1Data.GetTriggerTime(osc_control->Trigger, trigger_type,
+			trigger_time = OSC1Data->GetTriggerTime(osc_control->Trigger, trigger_type,
 				osc_control->TriggerLevel.getValue(), osc_control->TriggerHysteresis);
 		}
 		if (trigger_channel == constants::Channel::OSC2)
 		{
-			trigger_time = OSC2Data.GetTriggerTime(osc_control->Trigger, trigger_type,
+			trigger_time = OSC2Data->GetTriggerTime(osc_control->Trigger, trigger_type,
 				osc_control->TriggerLevel.getValue(), osc_control->TriggerHysteresis);
 		}
 		// sets the trigger time for both oscs
-		OSC1Data.SetTriggerTime(trigger_time);
-		OSC2Data.SetTriggerTime(trigger_time);
+		OSC1Data->SetTriggerTime(trigger_time);
+		OSC2Data->SetTriggerTime(trigger_time);
 		// sets the data vector that will be plotted
-		OSC1Data.SetData();
-		OSC2Data.SetData();
+		OSC1Data->SetData();
+		OSC2Data->SetData();
 		// sets the data vector used for analysis (FFT, period, Vpp etc; quite large)
-		OSC1Data.SetRawData();
-		OSC2Data.SetRawData();
+		OSC1Data->SetRawData();
+		OSC2Data->SetRawData();
 		// sets another data vector used for analysis (contains a whole number of periods)
-		OSC1Data.SetPeriodicData();
-		OSC2Data.SetPeriodicData();
+		OSC1Data->SetPeriodicData();
+		OSC2Data->SetPeriodicData();
 		// applies FFT to the raw_data vector
-		OSC1Data.ApplyFFT();
-		OSC2Data.ApplyFFT();
+		OSC1Data->ApplyFFT();
+		OSC2Data->ApplyFFT();
 		// auto sets gain to maximise resolution without clipping
 		AutoSetOscGain();
 		// auto sets trigger level
 		if (osc_control->AutoTriggerLevel)
 		{
 			AutoSetTriggerLevel(trigger_channel, trigger_type, &osc_control->TriggerLevel);
-		}
-		// handles writing to clipboard and csv files (copying data)
-		HandleWrites();
-	}
-	void HandleWrites()
-	{
-		bool* OSCClipboardCopyNext_p = NULL; // pointer to the bool for OSC which needs copying to clipboard (only one wll need copying at a time, prevents rewriting of code)
-		bool* OSCClipboardCopied_p = NULL; // pointer to a status for whether copying was successful
-		nfdchar_t** OSCWritePath_p = NULL; // pointer to the OSCWritePath which needs writing to file (one at a time as well)
-		OscData* OSCData_p = NULL;
-
-		// set up pointers based what we are doing to which osc
-		if (osc_control->OSC1ClipboardCopyNext) // if we are copying osc1 to clipboard
-		{
-			OSCClipboardCopyNext_p = &osc_control->OSC1ClipboardCopyNext; // sets the pointer to the clipboard bool
-			OSCClipboardCopied_p = &osc_control->OSC1ClipboardCopied; // sets the pointer to the clipboard success
-			OSCData_p = &OSC1Data; // sets the pointer to the OSC we are copying
-		}
-		if (osc_control->OSC2ClipboardCopyNext) // if we are copying osc2 to clipboard
-		{
-			OSCClipboardCopyNext_p = &osc_control->OSC2ClipboardCopyNext; // sets the pointer to the clipboard bool
-			OSCClipboardCopied_p = &osc_control->OSC2ClipboardCopied; // sets the pointer to the clipboard success
-			OSCData_p = &OSC1Data; // sets the pointer to the OSC we are copying
-		}
-		if (osc_control->OSC1WritePath != NULL) // if we are writing osc1 to csv file
-		{
-			OSCWritePath_p = &osc_control->OSC1WritePath; // sets the pointer to the write path var
-			OSCData_p = &OSC1Data; // sets the pointer to the OSC we are copying
-		}
-		if (osc_control->OSC2WritePath != NULL) // if we are writing osc2 to csv file
-		{
-			OSCWritePath_p = &osc_control->OSC2WritePath; // sets the pointer to the write path var
-			OSCData_p = &OSC1Data; // sets the pointer to the OSC we are copying
-		}
-
-		// once pointers are set up, perform desired task on desired osc
-		if (OSCClipboardCopyNext_p != NULL) // if we are copying to clipboard
-		{
-			// get OSCData signal and time vectors
-			std::vector<double> data = OSCData_p->GetData();
-			std::vector<double> time = OSCData_p->GetTime();
-			// write osc to string
-			std::string clipboard_str = ""; // define empty string which we will add to
-			clipboard_str += "Time\tVoltage\n"; // header
-			if (data.size() != 0)
-			{
-				for (int i = 0; i < data.size(); i++)
-				{
-					std::string time_str = std::to_string(time[i]); // convert time point to string
-					std::string data_str = std::to_string(data[i]); // convert data point to string
-					clipboard_str += time_str + "\t" + data_str + "\n"; // write to the clipboard string
-				}
-				ImGui::SetClipboardText(clipboard_str.c_str());
-				*OSCClipboardCopied_p = true;
-			}
-			*OSCClipboardCopyNext_p = false; // reset state so we don't repeat on next render
-		}
-		if (OSCWritePath_p != NULL) // if we are writing to a csv file
-		{
-			// get OSCData signal and time vectors
-			std::vector<double> data = OSCData_p->GetData();
-			std::vector<double> time = OSCData_p->GetTime();
-			// write osc to string
-			std::string file_str = ""; // define empty string which we will add to
-			file_str += "Time,Voltage\n"; // header
-			if (data.size() != 0)
-			{
-				for (int i = 0; i < data.size(); i++)
-				{
-					std::string time_str = std::to_string(time[i]); // convert time point to string
-					std::string data_str = std::to_string(data[i]); // convert data point to string
-					file_str += time_str + "," + data_str + "\n"; // write to the clipboard string
-				}
-				std::ofstream file;
-				// Automatically add the file extension to the end of the directory string if it isn't already there
-				// NOTE: This is not an ideal implementation. It doesn't behave entirely how file saving should work in windows
-				// For example, usually if you overwriting a file, it will warn you that you are overwriting a file
-				// But because we add the extension afterwards, it doesn't do this
-				// There may be a workaround, perhaps by rewriting some of nfd source code to fit our needs
-				// or perhaps we may just need to use a windows library and then create separate code for handling file saving 
-				// on macOS and linux.
-				size_t path_length = strlen(*OSCWritePath_p);
-				std::string extension_str = "." + std::string(osc_control->FileExtension);
-				if (path_length > extension_str.length())
-				{
-					// get last n characters (where n is the length of the extension)
-					int extension_start_index = path_length - extension_str.length();
-					if (std::strncmp(*OSCWritePath_p + extension_start_index, extension_str.c_str(), extension_str.length()) != 0) // checks if file path string does not end in the file extension
-					{
-						// append the file extension since it is not there already
-						std::string file_path_str = std::string(*OSCWritePath_p); // convert file path to std::string
-						file_path_str += extension_str; // append the extension
-						delete[] *OSCWritePath_p; // deallocate the old OSCWritePath memory as we are about to reallocate it
-						*OSCWritePath_p = new char[file_path_str.length() + 1]; // allocates the memory for OSCWritePath
-						std::strcpy(*OSCWritePath_p, file_path_str.c_str()); // copies the string to the OSCWritePath
-					}
-				}
-				file.open(*OSCWritePath_p);
-				file << file_str.c_str();
-				file.close();
-			}
-			*OSCWritePath_p = NULL; // reset state so we don't repeat on next render
 		}
 	}
 	void AutoSetTriggerLevel(constants::Channel trigger_channel,
@@ -1365,11 +1286,11 @@ public:
 		OscData* OSCData_ptr;
 		if (trigger_channel == constants::Channel::OSC1)
 		{
-			OSCData_ptr = &OSC1Data;
+			OSCData_ptr = OSC1Data;
 		}
 		if (trigger_channel == constants::Channel::OSC2)
 		{
-			OSCData_ptr = &OSC2Data;
+			OSCData_ptr = OSC2Data;
 		}
 		TriggerLevel->setLevel(OSCData_ptr->GetAverage());
 	}
@@ -1639,12 +1560,12 @@ public:
 		// Check whether gain needs to increase or decrease
 		if (osc_control->DisplayCheckOSC1)
 		{
-			gainUpdate1 = GetChangeToGain(OSC1Data.GetMiniBuffer());
+			gainUpdate1 = GetChangeToGain(OSC1Data->GetMiniBuffer());
 		}
 		
 		if (osc_control->DisplayCheckOSC2)
 		{
-			gainUpdate2 = GetChangeToGain(OSC2Data.GetMiniBuffer());
+			gainUpdate2 = GetChangeToGain(OSC2Data->GetMiniBuffer());
 		}
 		if (osc_control->DisplayCheckOSC1 == false && osc_control->DisplayCheckOSC2 == false)
 		{
@@ -1756,9 +1677,6 @@ protected:
 	double init_voltage_range_upper = 5.0;
 	OSCControl* osc_control;
 	AnalysisToolsWidget* analysis_tools_widget;
-	OscData OSC1Data = OscData(1);
-	OscData OSC2Data = OscData(2);
-	OscData MathData = OscData(0);
 	double cursor1_x = -1000;
 	double cursor1_y = -1000;
 	double cursor2_x = -1000;
@@ -1779,11 +1697,7 @@ protected:
 	bool spectrum_autofit = false;
 	bool spectrum_was_off = true;
 	bool network_was_off = true;
-	struct PlotTrace {
-		std::vector<double> x;
-		std::vector<double> y;
-	};
-	PlotTrace spectrum_plot_data;
+	
 	PlotTrace DecimateLogPlotTrace(const std::vector<double>& x,
 		const std::vector<double>& y)
 	{

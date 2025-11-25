@@ -6,7 +6,7 @@
     <ProductVersion>3.10</ProductVersion>
     <ProjectGuid>d55bbac4-afd6-48fd-a032-4c58c90afe60</ProjectGuid>
     <SchemaVersion>2.0</SchemaVersion>
-    <OutputName>LabradorInstaller</OutputName>
+    <OutputName>LabraScopeInstaller</OutputName>
     <OutputType>Package</OutputType>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">

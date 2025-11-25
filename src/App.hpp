@@ -10,6 +10,7 @@
 #include "SGControl.hpp"
 #include "PlotWidget.hpp"
 #include "PlotControl.hpp"
+#include "OscData.hpp"
 #include "util.h"
 #include <filesystem>
 #include <stdlib.h> 
@@ -137,9 +138,16 @@ class App : public AppBase<App>
 		OSCWidget.setPinoutImg((intptr_t)osc_tmp_texture, w, h);
 		GeneralHelp.setPinoutImg((intptr_t)glob_tmp_texture, gw, gh);
 
+		// Set Pointers in widgets to objects defined in App
 		PlotWidgetObj.SetNetworkAnalyser(&na, &na_cfg);
 		analysisToolsWidget.SetNetworkAnalyser(&na, &na_cfg);
 		PlotWidgetObj.SetControllers(&OSCWidget, &analysisToolsWidget);
+
+		PlotWidgetObj.SetOscs(&OSC1Data, &OSC2Data, &MathData);
+		OSCWidget.SetOscs(&OSC1Data, &OSC2Data, &MathData);
+
+		PlotWidgetObj.SetPlots(&spectrum_plots, &network_plots);
+		analysisToolsWidget.SetPlots(&spectrum_plots, &network_plots);
 
 		IM_ASSERT(psu_ret);
 		IM_ASSERT(sg_ret);
@@ -153,43 +161,134 @@ class App : public AppBase<App>
 		
 		SetGlobalStyle();
     }
-
     // Anything that needs to be called cyclically INSIDE of the main application loop
     void Update()
     {
-		{
-			using clock = std::chrono::high_resolution_clock;
-			static auto t_prev = clock::now();
-			static double fps_smooth = 0.0;
-
-			auto t_now = clock::now();
-			double dt = std::chrono::duration<double>(t_now - t_prev).count();
-			t_prev = t_now;
-
-			// Frame time in milliseconds
-			double frame_ms = dt * 1000.0;
-
-			// Instantaneous FPS
-			double fps = (dt > 0.0) ? 1.0 / dt : 0.0;
-
-			// Exponential smoothing
-			double alpha = 0.1;
-			fps_smooth = (fps_smooth == 0.0) ? fps : fps_smooth * (1.0 - alpha) + fps * alpha;
-
-			// Print or display
 #ifndef NDEBUG
-			printf("Frame: %.2f ms (%.1f FPS)\n", frame_ms, fps);
-#endif
-		}
+		// FPS Counter
+		//{
+		//	using clock = std::chrono::high_resolution_clock;
+		//	static auto t_prev = clock::now();
+		//	static double fps_smooth = 0.0;
 
-		
+		//	auto t_now = clock::now();
+		//	double dt = std::chrono::duration<double>(t_now - t_prev).count();
+		//	t_prev = t_now;
+
+		//	// Frame time in milliseconds
+		//	double frame_ms = dt * 1000.0;
+
+		//	// Instantaneous FPS
+		//	double fps = (dt > 0.0) ? 1.0 / dt : 0.0;
+
+		//	// Exponential smoothing
+		//	double alpha = 0.1;
+		//	fps_smooth = (fps_smooth == 0.0) ? fps : fps_smooth * (1.0 - alpha) + fps * alpha;
+
+		//	// Print or display
+		//	printf("Frame: %.2f ms (%.1f FPS)\n", frame_ms, fps);
+		//}
+#endif
+		// Check safety mode
+		if (!safety_mode && CheckIfInSafetyMode())
 		{
-			// Main window
-			ImGui::SetNextWindowPos(ImVec2(0, 0));
-			ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
-			ImGui::Begin("Main Window", NULL,
-			    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse
-			        | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_MenuBar);
+			safety_mode = true;
+			ImGui::OpenPopup("Warning!##SafetyModePopup");
+		}
+		if (ImGui::BeginPopupModal("Warning!##SafetyModePopup", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::Text("Labrador has entered Safety Mode.\nThis can happen if the PSU voltage is set too high. \nPlease disconnect and reconnect the device.\n");
+
+			if (ImGui::Button("OK") || !connected)
+			{
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndPopup();
+		}
+		bool uninit_now = CheckIfInUninitialisedMode();
+		if (uninit_now) {
+			// seeing "uninitialised" now
+			uninit_enter_count++;
+			uninit_exit_count = 0;
+		}
+		else {
+			// seeing "recovered" now
+			uninit_exit_count++;
+			uninit_enter_count = 0;
+		}
+		// ENTER logic: only go into uninitialised after N consecutive "bad" frames
+		if (!uninitialised_mode && uninit_enter_count >= UNINIT_ENTER_THRESHOLD) {
+			uninitialised_mode = true;
+			ImGui::OpenPopup("Warning!##UninitialisedModePopup");
+		}
+		// EXIT logic: only leave uninitialised after M consecutive "good" frames
+		if (uninitialised_mode && uninit_exit_count >= UNINIT_EXIT_THRESHOLD) {
+			uninitialised_mode = false;
+			// optional: you could open a "Recovered" popup or log something
+		}
+		if (ImGui::BeginPopupModal("Warning!##UninitialisedModePopup", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::Text("The device powered up before Windows initialized USB and is stuck in an incomplete startup state.\nPlease disconnect and reconnect the device.\n");
+			if (ImGui::Button("OK") || !uninitialised_mode)
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+		if (!connected)
+		{
+			safety_mode = false; // since device has been disconnected, we exit safety mode
+			uninitialised_mode = false;
+		}
+		{
+			{
+				const int padding = 6;
+				ImGuiStyle& style = ImGui::GetStyle();
+
+				// Simulate the window size we’re about to set
+				ImVec2 display_size = ImGui::GetIO().DisplaySize;
+
+				float base_window_width = display_size.x;
+				float base_window_height = display_size.y;
+
+				float plot_width = (base_window_width - 2 * style.WindowPadding.x) * 0.60f - padding;
+				float right_col_width = base_window_width - plot_width - 2 * padding - 2 * style.WindowPadding.x;
+
+				const float min_right_width = min_widget_width; // whatever feels “comfortable” for your widgets
+
+				float content_width = base_window_width;
+				if (right_col_width < min_right_width) {
+					float deficit = min_right_width - right_col_width;
+					content_width = base_window_width + deficit;
+				}
+
+				// Tell ImGui “the scrollable content is this wide”
+				ImGui::SetNextWindowContentSize(ImVec2(content_width, 0.0f));
+
+
+				// Predict layout before Begin()
+				float predicted_plot_width = (display_size.x - 2 * style.WindowPadding.x) * 0.60f - padding;
+				float predicted_right_width = display_size.x - predicted_plot_width
+					- 2 * padding - 2 * style.WindowPadding.x;
+
+				bool need_h_scroll = (predicted_right_width < min_right_width);
+
+				ImGui::SetNextWindowPos(ImVec2(0, 0));
+				ImGui::SetNextWindowSize(display_size);
+
+				ImGuiWindowFlags main_flags =
+					ImGuiWindowFlags_NoResize |
+					ImGuiWindowFlags_NoMove |
+					ImGuiWindowFlags_NoCollapse |
+					ImGuiWindowFlags_NoTitleBar |
+					ImGuiWindowFlags_MenuBar;
+
+				if (need_h_scroll)
+					main_flags |= ImGuiWindowFlags_HorizontalScrollbar;
+
+				ImGui::Begin("Main Window", NULL, main_flags);
+			}
 
 			ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
@@ -277,7 +376,19 @@ class App : public AppBase<App>
 
 				if (connected)
 				{
-					TextRight("Labrador Connected     ");
+					if (safety_mode)
+					{
+						TextRight("Labrador In Safety Mode, Disconnect and Reconnect Device     ");
+					}
+					else if (uninitialised_mode)
+					{
+						TextRight("Labrador In Uninitialised State, Disconnect and Reconnect Device");
+					}
+					else
+					{
+						TextRight("Labrador Connected     ");
+					}
+					
 				}
 				else
 				{
@@ -295,7 +406,7 @@ class App : public AppBase<App>
 				}
 
 				const ImU32 status_colour = ImGui::GetColorU32(
-				connected ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
+				connected && !safety_mode && !uninitialised_mode ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
 				const float radius = ImGui::GetTextLineHeight() * 0.4;
 				const ImVec2 p1 = ImGui::GetCursorScreenPos();
 				draw_list->AddCircleFilled(
@@ -313,36 +424,42 @@ class App : public AppBase<App>
 			
 			// Get window dimensions
 			ImVec2 window_size = ImGui::GetWindowSize();
-			float plot_width = (window_size.x - 2*style.WindowPadding.x) * 0.60f - padding;
-			float plot_height = (window_size.y - 2*style.WindowPadding.y) * 1.00f - padding;
-			
+			float plot_width = (window_size.x - 2 * style.WindowPadding.x) * 0.60f - padding;
+			float plot_height = (window_size.y - 2 * style.WindowPadding.y) * 1.00f - padding;
+
 			// Left Column Widgets
 			style.ItemSpacing = ImVec2(0, 0); // No padding for left and right columns
 			int menu_height = ImGui::GetFrameHeight();
 			ImGui::BeginChild("Left Column",
-			    ImVec2(plot_width, window_size.y - 2*style.WindowPadding.y - menu_height),
-			    false);
+				ImVec2(plot_width, window_size.y - 2 * style.WindowPadding.y - menu_height),
+				false);
 			style.ItemSpacing = ImVec2(padding, padding);
-			
+
 			// Render scope
 			PlotWidgetObj.setSize(ImVec2(plot_width, plot_height));
 			PlotWidgetObj.Render();
-			
+
 			ImGui::EndChild(); // End left column
 
 			// Right column control widgets
-			float control_widget_height = (window_size.y - 2*style.WindowPadding.y - 3*style.ItemSpacing.y) * 0.25f;
-			
+			float control_widget_height = (window_size.y - 2 * style.WindowPadding.y - 3 * style.ItemSpacing.y) * 0.25f;
+
+			// --- NEW: compute right column width with a minimum ---
+			float base_right_width = window_size.x - plot_width - 2 * padding - 2 * style.WindowPadding.x;
+			const float min_right_width = min_widget_width; // choose whatever feels right
+			float right_width = base_right_width;
+			if (right_width < min_right_width) {
+				right_width = min_right_width;
+			}
+
 			style.ItemSpacing = ImVec2(padding, 0);
-			ImGui::SameLine(); 
-			ImGui::BeginChild("Right Column",ImVec2(
-				window_size.x - plot_width - 2 * padding - 2 * style.WindowPadding.x,
-			    window_size.y - 2 * style.WindowPadding.y - menu_height),
-			    false);
+			ImGui::SameLine();
+			ImGui::BeginChild("Right Column",
+				ImVec2(right_width,
+					window_size.y - 2 * style.WindowPadding.y - menu_height),
+				false);
 			style.ItemSpacing = ImVec2(padding, padding);
 
-			// ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(10, 10, 10, 255));
-			
 			// Render PSU Control
 			PSUWidget.setSize(ImVec2(0, control_widget_height));
 			PSUWidget.Render();
@@ -360,6 +477,7 @@ class App : public AppBase<App>
 
 			// Render Analysis Tools Widget
 			analysisToolsWidget.Render();
+
 
 
 			//ImGui::EndChild(); // End right column
@@ -650,6 +768,15 @@ class App : public AppBase<App>
 	bool flash_firmware_next_frame = false;
 	NetworkAnalyser na;
 	NetworkAnalyser::Config na_cfg;
+	bool safety_mode = false;
+	bool uninitialised_mode = false;
+	int uninit_enter_count = 0;   // how long we've seen "uninitialised"
+	int uninit_exit_count = 0;   // how long we've seen "recovered"
+
+	// tune these:
+	const int UNINIT_ENTER_THRESHOLD = 10;   // frames to enter
+	const int UNINIT_EXIT_THRESHOLD = 60;   // frames to exit
+	const float min_widget_width = 420.0f;
 	
 	// Define default configurations for widgets here
 	PSUControl PSUWidget = PSUControl("Power Supply Unit (PSU)", ImVec2(0,0), constants::PSU_ACCENT);
@@ -667,5 +794,12 @@ class App : public AppBase<App>
 	HelpWidget GeneralHelp = HelpWidget("General");
 	ControlWidget* widgets[8]
 	    = { &GeneralHelp, &TroubleShoot, &PSUWidget, &SG1Widget, &SG2Widget, &OSCWidget, &PlotWidgetObj, &analysisToolsWidget };
+
+	// Define Data shared across widgets
+	OscData OSC1Data = OscData(1);
+	OscData OSC2Data = OscData(2);
+	OscData MathData = OscData(0);
+	SpectrumPlots spectrum_plots;
+	NetworkPlots network_plots;
 };
 

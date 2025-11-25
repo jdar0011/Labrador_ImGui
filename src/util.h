@@ -17,6 +17,7 @@
 #include <string>
 #include <unordered_map>
 #include <iostream>
+#include "librador.h"
 
 #define MATH_CUSTOM 15
 
@@ -185,4 +186,49 @@ bool SliderFloatPercent(const char* label, float* v01,
 	ImGuiSliderFlags flags = 0);
 std::vector<float> linspace(float x_min, float x_max, int resolution);
 ImVec4 GetPlotColour(PlotColour c);
+bool CheckIfInSafetyMode();
+bool CheckIfInUninitialisedMode();
+// Export Stuff
+struct ExportRowState {
+	int  destComboIdx = 0;     // 0 = clipboard, 1 = csv
+	bool copiedFlag = false; // triggers status flash
+	int  copiedFrame = -1000;
+	int  copiedLingerFrames = 50;
+
+	bool lastWasClipboard = true;  // NEW: true = "Copied!", false = "Saved!"
+};
+
+std::string BuildDelimited2Col(const std::vector<double>& x,
+	const std::vector<double>& y,
+	const char* xHeader,
+	const char* yHeader,
+	char sep);
+
+bool Export2ColToClipboard(const std::vector<double>& x,
+	const std::vector<double>& y,
+	const char* xHeader,
+	const char* yHeader);
+
+
+bool Export2ColToCsvFile(const char* basePath,
+	const char* fileExtension,
+	const std::vector<double>& x,
+	const std::vector<double>& y,
+	const char* xHeader,
+	const char* yHeader);
+
+struct PlotTrace {
+	std::vector<double> x = {};
+	std::vector<double> y = {};
+};
+struct SpectrumPlots {
+	PlotTrace osc1;
+	PlotTrace osc2;
+	// later: math, averaged, etc.
+};
+struct NetworkPlots {
+	std::vector<double> freq = {};
+	std::vector<double> mag = {};
+	std::vector<double> phase = {};
+};
 #endif
